@@ -1,0 +1,29 @@
+name: elif_yayinlari
+description: "A new Flutter project."
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  pdfx: ^2.9.2
+  http: ^1.2.2
+  vector_math: ^2.1.4
+  path_provider: ^2.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/pdf/
