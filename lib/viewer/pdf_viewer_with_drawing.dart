@@ -6,6 +6,7 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'stroke.dart';
 import 'drawing_painter.dart';
 import 'tool_state.dart';
+import 'drawing_history.dart';
 import 'dart:math' show cos, sin;
 
 class PdfViewerWithDrawing extends StatefulWidget {
@@ -33,6 +34,11 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       width: 3.0,
     ),
   );
+
+  // Undo/Redo için geçmiş yönetimi
+  final DrawingHistory _history = DrawingHistory();
+  final ValueNotifier<bool> _canUndoNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _canRedoNotifier = ValueNotifier<bool>(false);
 
   int _currentPage = 1;
   final TransformationController transformationController =
@@ -66,6 +72,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     super.initState();
     widget.controller.pageListenable.addListener(_onPageChanged);
     transformationController.addListener(_onTransformChanged);
+    // Başlangıç durumunu kaydet
+    _saveToHistory();
   }
 
   void _onPageChanged() {
@@ -73,6 +81,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     if (page != _currentPage) {
       setState(() => _currentPage = page);
       _repaintNotifier.value++;
+      // Sayfa değiştiğinde undo/redo durumunu güncelle
+      _updateUndoRedoState();
     }
   }
 
@@ -94,10 +104,24 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     _repaintNotifier.dispose();
     selectedAreaNotifier.dispose();
     _pdfScaleNotifier.dispose();
+    _canUndoNotifier.dispose();
+    _canRedoNotifier.dispose();
     super.dispose();
   }
 
   List<Stroke> get _strokes => _pageStrokes[_currentPage] ??= [];
+
+  /// Undo/Redo durumunu güncelle
+  void _updateUndoRedoState() {
+    _canUndoNotifier.value = _history.canUndo(_currentPage);
+    _canRedoNotifier.value = _history.canRedo(_currentPage);
+  }
+
+  /// Geçmişe kaydet
+  void _saveToHistory() {
+    _history.saveState(_currentPage, _strokes);
+    _updateUndoRedoState();
+  }
 
   Offset _transformPoint(Offset point) {
     // Transform matrisini tersine çevirerek zoom/pan dönüşümünü geri al
@@ -266,6 +290,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       _isDrawing = false;
       _repaintNotifier.value++;
     });
+    // Şekil tamamlandığında geçmişe kaydet
+    _saveToHistory();
   }
 
   void _startStroke(Offset position) {
@@ -310,6 +336,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       _isDrawing = false;
       _repaintNotifier.value++;
     });
+    // Çizim tamamlandığında geçmişe kaydet
+    _saveToHistory();
   }
 
   void _eraseAt(Offset position, double eraserRadius) {
@@ -475,7 +503,45 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     setState(() {
       _repaintNotifier.value++;
     });
+    // Temizleme işlemini geçmişe kaydet
+    _saveToHistory();
   }
+
+  /// Undo - Geri al
+  void undo() {
+    final previousState = _history.undo(_currentPage);
+    if (previousState != null) {
+      setState(() {
+        _pageStrokes[_currentPage] = previousState;
+        _repaintNotifier.value++;
+      });
+      _updateUndoRedoState();
+    }
+  }
+
+  /// Redo - İleri al
+  void redo() {
+    final nextState = _history.redo(_currentPage);
+    if (nextState != null) {
+      setState(() {
+        _pageStrokes[_currentPage] = nextState;
+        _repaintNotifier.value++;
+      });
+      _updateUndoRedoState();
+    }
+  }
+
+  /// Undo yapılabilir mi?
+  bool get canUndo => _canUndoNotifier.value;
+
+  /// Redo yapılabilir mi?
+  bool get canRedo => _canRedoNotifier.value;
+
+  /// Public getter for canUndoNotifier
+  ValueNotifier<bool> get canUndoNotifier => _canUndoNotifier;
+
+  /// Public getter for canRedoNotifier
+  ValueNotifier<bool> get canRedoNotifier => _canRedoNotifier;
 
   double get zoomLevel => transformationController.value.getMaxScaleOnAxis();
 
@@ -684,6 +750,18 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
             if (isCtrlPressed) {
               switch (event.logicalKey) {
+                case LogicalKeyboardKey.keyZ:
+                  // Ctrl+Z: Undo
+                  if (_history.canUndo(_currentPage)) {
+                    undo();
+                  }
+                  break;
+                case LogicalKeyboardKey.keyY:
+                  // Ctrl+Y: Redo
+                  if (_history.canRedo(_currentPage)) {
+                    redo();
+                  }
+                  break;
                 case LogicalKeyboardKey.arrowLeft:
                   rotateLeft();
                   break;

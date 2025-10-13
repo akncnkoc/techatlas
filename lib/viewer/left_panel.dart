@@ -210,6 +210,44 @@ class _FloatingLeftPanelState extends State<FloatingLeftPanel> {
           const Divider(height: 24),
         ],
 
+        // Undo/Redo controls
+        const Center(
+          child: Text("Geri Al / İleri Al", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        ),
+        const SizedBox(height: 8),
+        ValueListenableBuilder<bool>(
+          valueListenable: state.canUndoNotifier,
+          builder: (context, canUndo, _) {
+            return ValueListenableBuilder<bool>(
+              valueListenable: state.canRedoNotifier,
+              builder: (context, canRedo, _) {
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _toolButton(
+                      icon: Icons.undo,
+                      tooltip: "Geri Al (Ctrl+Z)",
+                      onPressed: canUndo ? () => state.undo() : null,
+                      scheme: scheme,
+                      color: canUndo ? scheme.primaryContainer : scheme.surfaceContainerHighest.withOpacity(0.5),
+                    ),
+                    _toolButton(
+                      icon: Icons.redo,
+                      tooltip: "İleri Al (Ctrl+Y)",
+                      onPressed: canRedo ? () => state.redo() : null,
+                      scheme: scheme,
+                      color: canRedo ? scheme.primaryContainer : scheme.surfaceContainerHighest.withOpacity(0.5),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+        const Divider(height: 24),
+
         // Zoom controls
         Wrap(
           spacing: 8,
@@ -573,7 +611,7 @@ class _FloatingLeftPanelState extends State<FloatingLeftPanel> {
   Widget _toolButton({
     required IconData icon,
     required String tooltip,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     required ColorScheme scheme,
     Color? color,
   }) {
@@ -587,8 +625,10 @@ class _FloatingLeftPanelState extends State<FloatingLeftPanel> {
           ),
           padding: const EdgeInsets.symmetric(vertical: 14),
           backgroundColor: color ?? scheme.surfaceContainerHighest,
-          foregroundColor: scheme.onSurface,
+          foregroundColor: onPressed == null ? scheme.onSurface.withOpacity(0.3) : scheme.onSurface,
           elevation: 0,
+          disabledBackgroundColor: color ?? scheme.surfaceContainerHighest,
+          disabledForegroundColor: scheme.onSurface.withOpacity(0.3),
         ),
         child: Icon(icon, size: 20),
       ),
