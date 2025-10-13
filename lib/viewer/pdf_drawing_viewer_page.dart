@@ -696,9 +696,12 @@ class _PdfDrawingViewerPageState extends State<PdfDrawingViewerPage> {
                 const SizedBox(width: 16),
 
                 // Zoom Seviyesi
-                ValueListenableBuilder<PdfViewerWithDrawingState?>(
-                  valueListenable: ValueNotifier(_drawingKey.currentState),
-                  builder: (context, state, child) {
+                AnimatedBuilder(
+                  animation:
+                      _drawingKey.currentState?.transformationController ??
+                      TransformationController(),
+                  builder: (context, child) {
+                    final state = _drawingKey.currentState;
                     final zoomLevel = state?.zoomLevel ?? 1.0;
                     return Container(
                       padding: const EdgeInsets.symmetric(

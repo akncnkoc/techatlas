@@ -35,7 +35,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   );
 
   int _currentPage = 1;
-  final TransformationController _transformationController =
+  final TransformationController transformationController =
       TransformationController();
   final double _minZoom = 0.5;
   final double _maxZoom = 4.0;
@@ -45,9 +45,17 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   double _lastRotation = 0.0;
   Offset? _shapeStartPoint;
 
-  // Selection için
+  // Swipe detection için
+  Offset? _panStartPosition;
+  Offset? _panLastPosition;
+  DateTime? _panStartTime;
+  static const double _swipeVelocityThreshold = 1200.0; // pixels per second (arttırıldı)
+  static const double _swipeDistanceThreshold = 150.0; // minimum distance (arttırıldı)
+
+  // Selection için (ekran koordinatlarında)
   final ValueNotifier<Rect?> selectedAreaNotifier = ValueNotifier<Rect?>(null);
   Offset? _selectionStart;
+  Offset? _selectionStartScreen; // Ekran koordinatı
 
   // PDF rendering kalitesi için
   double _lastRenderedScale = 1.0;
@@ -57,7 +65,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   void initState() {
     super.initState();
     widget.controller.pageListenable.addListener(_onPageChanged);
-    _transformationController.addListener(_onTransformChanged);
+    transformationController.addListener(_onTransformChanged);
   }
 
   void _onPageChanged() {
@@ -69,7 +77,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   }
 
   void _onTransformChanged() {
-    final currentScale = _transformationController.value.getMaxScaleOnAxis();
+    final currentScale = transformationController.value.getMaxScaleOnAxis();
 
     // Zoom seviyesi %5'den fazla değiştiyse PDF'i yeniden render et
     if ((currentScale - _lastRenderedScale).abs() / _lastRenderedScale > 0.05) {
@@ -81,8 +89,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   @override
   void dispose() {
     widget.controller.pageListenable.removeListener(_onPageChanged);
-    _transformationController.removeListener(_onTransformChanged);
-    _transformationController.dispose();
+    transformationController.removeListener(_onTransformChanged);
+    transformationController.dispose();
     _repaintNotifier.dispose();
     selectedAreaNotifier.dispose();
     _pdfScaleNotifier.dispose();
@@ -91,22 +99,32 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
   List<Stroke> get _strokes => _pageStrokes[_currentPage] ??= [];
 
+  Offset _transformPoint(Offset point) {
+    // Transform matrisini tersine çevirerek zoom/pan dönüşümünü geri al
+    final Matrix4 invertedMatrix = Matrix4.inverted(
+      transformationController.value,
+    );
+    final Vector3 transformed = invertedMatrix.transform3(
+      Vector3(point.dx, point.dy, 0),
+    );
+    return Offset(transformed.x, transformed.y);
+  }
+
   void _handleScaleStart(ScaleStartDetails details) {
     _lastRotation = 0.0;
     final tool = toolNotifier.value;
 
     if (details.pointerCount == 1) {
-      if (tool.selection) {
-        // Alan seçimi başlat
-        _selectionStart = details.localFocalPoint;
-        selectedAreaNotifier.value = null;
-      } else if (tool.grab) {
+      if (tool.grab || tool.mouse) {
         _isPanning = true;
+        _panStartPosition = details.localFocalPoint;
+        _panStartTime = DateTime.now();
       } else if (tool.shape) {
-        _startShape(details.localFocalPoint);
+        _startShape(_transformPoint(details.localFocalPoint));
       } else if (tool.pencil || tool.eraser) {
-        _startStroke(details.localFocalPoint);
+        _startStroke(_transformPoint(details.localFocalPoint));
       }
+      // Selection artık GestureDetector'dan değil Listener'dan yönetiliyor
     }
   }
 
@@ -126,73 +144,112 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     }
 
     if (details.pointerCount == 1) {
-      if (tool.selection && _selectionStart != null) {
-        // Alan seçimini güncelle
-        final rect = Rect.fromPoints(_selectionStart!, details.localFocalPoint);
-        selectedAreaNotifier.value = rect;
-      } else if (tool.grab && _isPanning) {
-        final currentTransform = _transformationController.value;
+      if ((tool.grab || tool.mouse) && _isPanning) {
+        // Son pozisyonu kaydet
+        _panLastPosition = details.localFocalPoint;
+
+        final currentTransform = transformationController.value;
         final newTransform = Matrix4.copy(currentTransform)
           ..translateByVector3(
             Vector3(details.focalPointDelta.dx, details.focalPointDelta.dy, 0),
           );
-        _transformationController.value = newTransform;
+        transformationController.value = newTransform;
       } else if (tool.shape) {
-        _updateShape(details.localFocalPoint);
+        _updateShape(_transformPoint(details.localFocalPoint));
       } else if (tool.pencil || tool.eraser) {
-        _updateStroke(details.localFocalPoint);
+        _updateStroke(_transformPoint(details.localFocalPoint));
       }
+      // Selection artık GestureDetector'dan değil Listener'dan yönetiliyor
     }
   }
 
   void _handleScaleEnd(ScaleEndDetails details) {
     final tool = toolNotifier.value;
 
-    if (tool.selection) {
-      // Alan seçimi tamamlandı
-      _selectionStart = null;
-    } else if (tool.grab) {
+    if ((tool.grab || tool.mouse) && _isPanning) {
+      // Swipe detection
+      if (_panStartPosition != null &&
+          _panLastPosition != null &&
+          _panStartTime != null) {
+        final distance = _panLastPosition! - _panStartPosition!;
+        final duration = DateTime.now().difference(_panStartTime!);
+        final velocity = distance.dx.abs() / (duration.inMilliseconds / 1000.0);
+
+        // Hızlı yatay hareket ve yeterli mesafe varsa sayfa değiştir
+        if (velocity > _swipeVelocityThreshold &&
+            distance.dx.abs() > _swipeDistanceThreshold &&
+            distance.dx.abs() > distance.dy.abs() * 2) {
+          // Transform ayarlarını animasyonlu sıfırla
+          setState(() {
+            transformationController.value = Matrix4.identity();
+            _lastRenderedScale = 1.0;
+            _pdfScaleNotifier.value = 1.0;
+          });
+
+          // Sayfa geçiş animasyonu - daha uzun ve akıcı
+          if (distance.dx > 0) {
+            // Sağa swipe - önceki sayfa
+            widget.controller.previousPage(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOutCubic,
+            );
+          } else {
+            // Sola swipe - sonraki sayfa
+            widget.controller.nextPage(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOutCubic,
+            );
+          }
+        }
+      }
+
       _isPanning = false;
+      _panStartPosition = null;
+      _panLastPosition = null;
+      _panStartTime = null;
     } else if (tool.shape) {
       _endShape();
     } else if (tool.pencil || tool.eraser) {
       _endStroke();
     }
+    // Selection artık GestureDetector'dan değil Listener'dan yönetiliyor
 
     _lastRotation = 0.0;
   }
 
   void _startShape(Offset position) {
-    _isDrawing = true;
-    _shapeStartPoint = position;
+    setState(() {
+      _isDrawing = true;
+      _shapeStartPoint = position;
 
-    final tool = toolNotifier.value;
-    StrokeType strokeType;
+      final tool = toolNotifier.value;
+      StrokeType strokeType;
 
-    switch (tool.selectedShape) {
-      case ShapeType.rectangle:
-        strokeType = StrokeType.rectangle;
-        break;
-      case ShapeType.circle:
-        strokeType = StrokeType.circle;
-        break;
-      case ShapeType.line:
-        strokeType = StrokeType.line;
-        break;
-      case ShapeType.arrow:
-        strokeType = StrokeType.arrow;
-        break;
-    }
+      switch (tool.selectedShape) {
+        case ShapeType.rectangle:
+          strokeType = StrokeType.rectangle;
+          break;
+        case ShapeType.circle:
+          strokeType = StrokeType.circle;
+          break;
+        case ShapeType.line:
+          strokeType = StrokeType.line;
+          break;
+        case ShapeType.arrow:
+          strokeType = StrokeType.arrow;
+          break;
+      }
 
-    _activeStroke = Stroke.shape(
-      color: tool.color,
-      width: tool.width,
-      type: strokeType,
-      shapePoints: [position, position],
-    );
+      _activeStroke = Stroke.shape(
+        color: tool.color,
+        width: tool.width,
+        type: strokeType,
+        shapePoints: [position, position],
+      );
 
-    _strokes.add(_activeStroke!);
-    _repaintNotifier.value++;
+      _strokes.add(_activeStroke!);
+      _repaintNotifier.value++;
+    });
   }
 
   void _updateShape(Offset position) {
@@ -203,29 +260,33 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   }
 
   void _endShape() {
-    _activeStroke = null;
-    _shapeStartPoint = null;
-    _isDrawing = false;
-    _repaintNotifier.value++;
+    setState(() {
+      _activeStroke = null;
+      _shapeStartPoint = null;
+      _isDrawing = false;
+      _repaintNotifier.value++;
+    });
   }
 
   void _startStroke(Offset position) {
-    _isDrawing = true;
+    setState(() {
+      _isDrawing = true;
 
-    final tool = toolNotifier.value;
+      final tool = toolNotifier.value;
 
-    if (tool.eraser) {
-      _activeStroke = Stroke(color: tool.color, width: tool.width, erase: true);
+      if (tool.eraser) {
+        _activeStroke = Stroke(color: tool.color, width: tool.width, erase: true);
+        _activeStroke!.points.add(position);
+        _eraseAt(position, tool.width);
+        return;
+      }
+
+      _activeStroke = Stroke(color: tool.color, width: tool.width, erase: false);
       _activeStroke!.points.add(position);
-      _eraseAt(position, tool.width);
-      return;
-    }
+      _strokes.add(_activeStroke!);
 
-    _activeStroke = Stroke(color: tool.color, width: tool.width, erase: false);
-    _activeStroke!.points.add(position);
-    _strokes.add(_activeStroke!);
-
-    _repaintNotifier.value++;
+      _repaintNotifier.value++;
+    });
   }
 
   void _updateStroke(Offset position) {
@@ -244,9 +305,11 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   }
 
   void _endStroke() {
-    _activeStroke = null;
-    _isDrawing = false;
-    _repaintNotifier.value++;
+    setState(() {
+      _activeStroke = null;
+      _isDrawing = false;
+      _repaintNotifier.value++;
+    });
   }
 
   void _eraseAt(Offset position, double eraserRadius) {
@@ -414,22 +477,22 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     });
   }
 
-  double get zoomLevel => _transformationController.value.getMaxScaleOnAxis();
+  double get zoomLevel => transformationController.value.getMaxScaleOnAxis();
 
   void zoomIn() {
-    final currentScale = _transformationController.value.getMaxScaleOnAxis();
+    final currentScale = transformationController.value.getMaxScaleOnAxis();
     final newScale = (currentScale * 1.2).clamp(_minZoom, _maxZoom);
-    _transformationController.value = Matrix4.identity()..scale(newScale);
+    transformationController.value = Matrix4.identity()..scale(newScale);
   }
 
   void zoomOut() {
-    final currentScale = _transformationController.value.getMaxScaleOnAxis();
+    final currentScale = transformationController.value.getMaxScaleOnAxis();
     final newScale = (currentScale / 1.2).clamp(_minZoom, _maxZoom);
-    _transformationController.value = Matrix4.identity()..scale(newScale);
+    transformationController.value = Matrix4.identity()..scale(newScale);
   }
 
   void resetZoom() {
-    _transformationController.value = Matrix4.identity();
+    transformationController.value = Matrix4.identity();
     _lastRenderedScale = 1.0;
     _pdfScaleNotifier.value = 1.0;
   }
@@ -475,12 +538,13 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   }
 
   void setGrab(bool value) {
+    // Grab artık mouse ile aynı işlevi görüyor
     toolNotifier.value = toolNotifier.value.copyWith(
-      grab: value,
+      mouse: value,
+      grab: false,
       pencil: false,
       eraser: false,
       shape: false,
-      mouse: false,
       selection: false,
     );
   }
@@ -553,7 +617,30 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   void clearSelection() {
     selectedAreaNotifier.value = null;
     _selectionStart = null;
+    _selectionStartScreen = null;
     setMouse(true);
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    final tool = toolNotifier.value;
+    if (tool.selection) {
+      _selectionStartScreen = event.localPosition;
+      selectedAreaNotifier.value = null;
+    }
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    final tool = toolNotifier.value;
+    if (tool.selection && _selectionStartScreen != null) {
+      selectedAreaNotifier.value = Rect.fromPoints(_selectionStartScreen!, event.localPosition);
+    }
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    final tool = toolNotifier.value;
+    if (tool.selection) {
+      _selectionStartScreen = null;
+    }
   }
 
   @override
@@ -567,8 +654,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
           if (isCtrlPressed) {
             final delta = pointerSignal.scrollDelta.dy;
-            final currentScale =
-                _transformationController.value.getMaxScaleOnAxis();
+            final currentScale = transformationController.value
+                .getMaxScaleOnAxis();
 
             double zoomFactor;
             if (delta < 0) {
@@ -577,12 +664,14 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
               zoomFactor = 0.9;
             }
 
-            final newScale =
-                (currentScale * zoomFactor).clamp(_minZoom, _maxZoom);
+            final newScale = (currentScale * zoomFactor).clamp(
+              _minZoom,
+              _maxZoom,
+            );
 
             if (newScale != currentScale) {
-              _transformationController.value =
-                  Matrix4.identity()..scale(newScale);
+              transformationController.value = Matrix4.identity()
+                ..scale(newScale);
             }
           }
         }
@@ -612,70 +701,88 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
           cursor: tool.mouse
               ? SystemMouseCursors.move
               : tool.grab
-                  ? SystemMouseCursors.grab
-                  : tool.pencil
-                      ? SystemMouseCursors.precise
-                      : tool.shape
-                          ? SystemMouseCursors.cell
-                          : tool.eraser
-                              ? SystemMouseCursors.click
-                              : tool.selection
-                                  ? SystemMouseCursors.precise
-                                  : SystemMouseCursors.basic,
-          child: InteractiveViewer(
-            transformationController: _transformationController,
-            minScale: _minZoom,
-            maxScale: _maxZoom,
-            boundaryMargin: const EdgeInsets.all(20),
-            panEnabled: tool.grab,
-            scaleEnabled: true,
-            child: GestureDetector(
-              onScaleStart: _handleScaleStart,
-              onScaleUpdate: _handleScaleUpdate,
-              onScaleEnd: _handleScaleEnd,
-              child: Transform.rotate(
-                angle: _rotationAngle,
-                child: Stack(
-                  children: [
-                    ValueListenableBuilder<double>(
-                      valueListenable: _pdfScaleNotifier,
-                      builder: (context, scale, child) {
-                        // Zoom seviyesine göre render kalitesini ayarla
-                        // Daha yüksek kalite için çarpan ve limitleri artırdık
-                        final quality = (scale * 6).clamp(4.0, 12.0);
+              ? SystemMouseCursors.grab
+              : tool.pencil
+              ? SystemMouseCursors.precise
+              : tool.shape
+              ? SystemMouseCursors.cell
+              : tool.eraser
+              ? SystemMouseCursors.click
+              : tool.selection
+              ? SystemMouseCursors.precise
+              : SystemMouseCursors.basic,
+          child: Stack(
+            children: [
+              InteractiveViewer(
+                transformationController: transformationController,
+                minScale: _minZoom,
+                maxScale: _maxZoom,
+                boundaryMargin: const EdgeInsets.all(20),
+                panEnabled: tool.grab || tool.mouse,
+                scaleEnabled: true,
+                child: GestureDetector(
+                  onScaleStart: _handleScaleStart,
+                  onScaleUpdate: _handleScaleUpdate,
+                  onScaleEnd: _handleScaleEnd,
+                  child: Transform.rotate(
+                    angle: _rotationAngle,
+                    child: Stack(
+                      children: [
+                        ValueListenableBuilder<double>(
+                          valueListenable: _pdfScaleNotifier,
+                          builder: (context, scale, child) {
+                            // Zoom seviyesine göre render kalitesini ayarla
+                            // Daha yüksek kalite için çarpan ve limitleri artırdık
+                            final quality = (scale * 6).clamp(4.0, 12.0);
 
-                        return PdfView(
-                          controller: widget.controller,
-                          renderer: (page) {
-                            return page.render(
-                              width: (page.width * quality).toDouble(),
-                              height: (page.height * quality).toDouble(),
-                              format: PdfPageImageFormat.png,
-                              backgroundColor: '#FFFFFF',
+                            return PdfView(
+                              controller: widget.controller,
+                              renderer: (page) {
+                                return page.render(
+                                  width: (page.width * quality).toDouble(),
+                                  height: (page.height * quality).toDouble(),
+                                  format: PdfPageImageFormat.png,
+                                  backgroundColor: '#FFFFFF',
+                                );
+                              },
                             );
                           },
-                        );
-                      },
+                        ),
+                        Positioned.fill(
+                          child: ValueListenableBuilder(
+                            valueListenable: _repaintNotifier,
+                            builder: (_, __, ___) {
+                              return CustomPaint(
+                                painter: DrawingPainter(strokes: _strokes),
+                                size: Size.infinite,
+                                child: Container(),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                    Positioned.fill(
-                      child: ValueListenableBuilder(
-                        valueListenable: _repaintNotifier,
-                        builder: (_, __, ___) {
-                          return CustomPaint(
-                            painter: DrawingPainter(strokes: _strokes),
-                            size: Size.infinite,
-                            child: Container(),
-                          );
-                        },
-                      ),
-                    ),
-                    // Selection overlay
-                    Positioned.fill(
+                  ),
+                ),
+              ),
+              // Selection overlay - InteractiveViewer dışında, ekran koordinatlarında
+              ValueListenableBuilder<ToolState>(
+                valueListenable: toolNotifier,
+                builder: (context, currentTool, child) {
+                  if (!currentTool.selection) {
+                    return const SizedBox.shrink();
+                  }
+                  return Positioned.fill(
+                    child: Listener(
+                      onPointerDown: _handlePointerDown,
+                      onPointerMove: _handlePointerMove,
+                      onPointerUp: _handlePointerUp,
+                      behavior: HitTestBehavior.translucent,
                       child: ValueListenableBuilder<Rect?>(
                         valueListenable: selectedAreaNotifier,
                         builder: (context, selectedRect, child) {
                           if (selectedRect == null) {
-                            return const SizedBox.shrink();
+                            return Container(color: Colors.transparent);
                           }
                           return CustomPaint(
                             painter: _SelectionPainter(selectedRect),
@@ -684,10 +791,10 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                         },
                       ),
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
-            ),
+            ],
           ),
         ),
       ),

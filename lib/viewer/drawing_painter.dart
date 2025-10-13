@@ -122,9 +122,6 @@ class DrawingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    if (oldDelegate is DrawingPainter) {
-      return oldDelegate.strokes != strokes;
-    }
     return true;
   }
 }

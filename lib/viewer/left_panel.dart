@@ -277,17 +277,10 @@ class _FloatingLeftPanelState extends State<FloatingLeftPanel> {
           alignment: WrapAlignment.center,
           children: [
             _toolToggle(
-              icon: Icons.mouse_sharp,
-              tooltip: "Mouse",
-              active: tool.mouse,
-              onPressed: () => state.setMouse(true),
-              scheme: scheme,
-            ),
-            _toolToggle(
               icon: Icons.pan_tool,
-              tooltip: "Kaydır",
-              active: tool.grab,
-              onPressed: () => state.setGrab(true),
+              tooltip: "Kaydır / Swipe (Hızlı kaydırarak sayfa değiştir)",
+              active: tool.mouse || tool.grab,
+              onPressed: () => state.setMouse(true),
               scheme: scheme,
             ),
             _toolToggle(
@@ -305,7 +298,7 @@ class _FloatingLeftPanelState extends State<FloatingLeftPanel> {
               scheme: scheme,
             ),
             _toolToggle(
-              icon: Icons.crop_free, // 🆕 Seçim Aracı
+              icon: Icons.crop_free,
               tooltip: "Alan Seç",
               active: tool.selection,
               onPressed: () => state.setSelection(!tool.selection),
