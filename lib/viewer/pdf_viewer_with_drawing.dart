@@ -7,6 +7,7 @@ import 'stroke.dart';
 import 'drawing_painter.dart';
 import 'tool_state.dart';
 import 'drawing_history.dart';
+import 'page_time_tracker.dart';
 import 'dart:math' show cos, sin;
 
 class PdfViewerWithDrawing extends StatefulWidget {
@@ -40,6 +41,10 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   final ValueNotifier<bool> _canUndoNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<bool> _canRedoNotifier = ValueNotifier<bool>(false);
 
+  // Zaman takibi
+  late final PageTimeTracker _timeTracker;
+  final ValueNotifier<String> _currentPageTimeNotifier = ValueNotifier<String>('0sn');
+
   int _currentPage = 1;
   final TransformationController transformationController =
       TransformationController();
@@ -72,6 +77,12 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     super.initState();
     widget.controller.pageListenable.addListener(_onPageChanged);
     transformationController.addListener(_onTransformChanged);
+
+    // Zaman takibi başlat
+    _timeTracker = PageTimeTracker(onUpdate: _updateTimeDisplay);
+    _timeTracker.onPageChanged(_currentPage);
+    _timeTracker.startTimer();
+
     // Başlangıç durumunu kaydet
     _saveToHistory();
   }
@@ -83,6 +94,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       _repaintNotifier.value++;
       // Sayfa değiştiğinde undo/redo durumunu güncelle
       _updateUndoRedoState();
+      // Sayfa değiştiğinde zaman takibini güncelle
+      _timeTracker.onPageChanged(page);
     }
   }
 
@@ -106,6 +119,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     _pdfScaleNotifier.dispose();
     _canUndoNotifier.dispose();
     _canRedoNotifier.dispose();
+    _timeTracker.dispose();
+    _currentPageTimeNotifier.dispose();
     super.dispose();
   }
 
@@ -122,6 +137,25 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     _history.saveState(_currentPage, _strokes);
     _updateUndoRedoState();
   }
+
+  /// Zaman gösterimini güncelle
+  void _updateTimeDisplay() {
+    final pageData = _timeTracker.getCurrentPageData();
+    if (pageData != null) {
+      _currentPageTimeNotifier.value = pageData.formatDuration();
+    }
+  }
+
+  /// Mevcut sayfa için zaman verisini al
+  String getCurrentPageTime() {
+    return _currentPageTimeNotifier.value;
+  }
+
+  /// Mevcut sayfa zaman notifier'ını al
+  ValueNotifier<String> get currentPageTimeNotifier => _currentPageTimeNotifier;
+
+  /// Zaman takipçisini al (detaylı bilgi için)
+  PageTimeTracker get timeTracker => _timeTracker;
 
   Offset _transformPoint(Offset point) {
     // Transform matrisini tersine çevirerek zoom/pan dönüşümünü geri al

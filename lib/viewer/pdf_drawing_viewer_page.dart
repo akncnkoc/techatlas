@@ -8,6 +8,7 @@ import 'pdf_viewer_with_drawing.dart';
 import 'left_panel.dart';
 import '../soru_cozucu_service.dart';
 import 'pdf_thumbnail.dart'; // 🆕 Import ekle
+import 'time_display_widget.dart';
 
 class PdfDrawingViewerPage extends StatefulWidget {
   final String pdfPath;
@@ -763,6 +764,32 @@ class _PdfDrawingViewerPageState extends State<PdfDrawingViewerPage> {
                   controller: _pdfController,
                   drawingKey: _drawingKey,
                   onSolveProblem: _serverHealthy ? _solveProblem : null,
+                ),
+
+                // Time Display Widget (Sağ üst köşe)
+                Positioned(
+                  top: 20,
+                  right: 20,
+                  child: Builder(
+                    builder: (context) {
+                      final state = _drawingKey.currentState;
+                      if (state == null) {
+                        return const SizedBox.shrink();
+                      }
+                      return TimeDisplayWidget(
+                        timeNotifier: state.currentPageTimeNotifier,
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => TimeStatisticsDialog(
+                              timeTracker: state.timeTracker,
+                              currentPage: _pdfController.pageListenable.value,
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
