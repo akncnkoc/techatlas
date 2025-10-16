@@ -61,8 +61,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   Offset? _panStartPosition;
   Offset? _panLastPosition;
   DateTime? _panStartTime;
-  static const double _swipeVelocityThreshold = 1200.0; // pixels per second (arttırıldı)
-  static const double _swipeDistanceThreshold = 150.0; // minimum distance (arttırıldı)
+  static const double _swipeVelocityThreshold = 1000.0; // pixels per second
+  static const double _swipeDistanceThreshold = 100.0; // minimum distance
 
   // Selection için (ekran koordinatlarında)
   final ValueNotifier<Rect?> selectedAreaNotifier = ValueNotifier<Rect?>(null);
@@ -251,10 +251,15 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
         final duration = DateTime.now().difference(_panStartTime!);
         final velocity = distance.dx.abs() / (duration.inMilliseconds / 1000.0);
 
-        // Hızlı yatay hareket ve yeterli mesafe varsa sayfa değiştir
-        if (velocity > _swipeVelocityThreshold &&
-            distance.dx.abs() > _swipeDistanceThreshold &&
-            distance.dx.abs() > distance.dy.abs() * 2) {
+        // Yatay hareket kontrolü (horizontal swipe)
+        final isHorizontalSwipe = distance.dx.abs() > distance.dy.abs() * 2.0;
+
+        // Hızlı VE yeterli mesafeli swipe olmalı
+        final isFastEnough = velocity > _swipeVelocityThreshold;
+        final isLongEnough = distance.dx.abs() > _swipeDistanceThreshold;
+
+        // Sayfa değiştir: yatay hareket VE hem hızlı hem yeterli mesafeli
+        if (isHorizontalSwipe && isFastEnough && isLongEnough) {
           // Transform ayarlarını animasyonlu sıfırla
           setState(() {
             transformationController.value = Matrix4.identity();
@@ -889,7 +894,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                 maxScale: _maxZoom,
                 boundaryMargin: const EdgeInsets.all(20),
                 panEnabled: tool.grab || tool.mouse,
-                scaleEnabled: !_isDrawing && (tool.grab || tool.mouse), // Çizim sırasında scale'i devre dışı bırak
+                scaleEnabled: !_isDrawing, // Çizim sırasında scale'i devre dışı bırak, diğer durumlarda her zaman aktif (pinch-to-zoom için)
                 child: GestureDetector(
                   onScaleStart: _handleScaleStart,
                   onScaleUpdate: _handleScaleUpdate,

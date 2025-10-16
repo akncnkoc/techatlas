@@ -5,8 +5,6 @@ import 'package:window_manager/window_manager.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'login_page.dart';
 import 'folder_homepage.dart';
-import 'dropbox/dropbox_oauth.dart';
-import 'dropbox/dropbox_auth_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,10 +40,10 @@ void main() async {
       minimumSize: Size(windowWidth * 0.8, windowHeight * 0.8),
       center: true,
       backgroundColor: Colors.transparent,
-      titleBarStyle: TitleBarStyle.normal,
+      titleBarStyle: TitleBarStyle.hidden,
       alwaysOnTop: false,
-      windowButtonVisibility: true,
-      fullScreen: false,
+      windowButtonVisibility: false,
+      fullScreen: true,
     );
 
     windowManager.waitUntilReadyToShow(windowOptions, () async {
