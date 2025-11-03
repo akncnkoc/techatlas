@@ -10,6 +10,7 @@ class ToolState {
   final bool mouse;
   final bool shape;
   final bool selection;
+  final bool magnifier;
   final ShapeType selectedShape;
   final Color color;
   final double width;
@@ -22,6 +23,7 @@ class ToolState {
     required this.mouse,
     required this.shape,
     required this.selection,
+    required this.magnifier,
     required this.selectedShape,
     required this.color,
     required this.width,
@@ -35,6 +37,7 @@ class ToolState {
     bool? mouse,
     bool? shape,
     bool? selection,
+    bool? magnifier,
     ShapeType? selectedShape,
     Color? color,
     double? width,
@@ -47,6 +50,7 @@ class ToolState {
       mouse: mouse ?? this.mouse,
       shape: shape ?? this.shape,
       selection: selection ?? this.selection,
+      magnifier: magnifier ?? this.magnifier,
       selectedShape: selectedShape ?? this.selectedShape,
       color: color ?? this.color,
       width: width ?? this.width,

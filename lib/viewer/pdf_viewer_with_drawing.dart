@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +10,8 @@ import 'drawing_painter.dart';
 import 'tool_state.dart';
 import 'drawing_history.dart';
 import 'page_time_tracker.dart';
+import 'magnifier_overlay.dart';
+import 'magnified_content_overlay.dart';
 import '../models/crop_data.dart';
 import 'dart:math' show cos, sin;
 
@@ -48,6 +49,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       grab: false,
       shape: false,
       selection: false,
+      magnifier: false,
       selectedShape: ShapeType.rectangle,
       color: Colors.red,
       width: 3.0,
@@ -90,13 +92,21 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   static const double _swipeDistanceThreshold = AppConstants.swipeDistanceThreshold;
 
   final ValueNotifier<Rect?> selectedAreaNotifier = ValueNotifier<Rect?>(null);
-  Offset? _selectionStart;
   Offset? _selectionStartScreen;
+
+  // Magnifier state
+  MagnifierState _magnifierState = MagnifierState();
+  final ValueNotifier<Rect?> _magnifierAreaNotifier = ValueNotifier<Rect?>(null);
+  bool _showMagnifiedView = false;
+  Rect? _magnifiedRect;
 
   double _lastRenderedScale = 1.0;
   final ValueNotifier<double> _pdfScaleNotifier = ValueNotifier<double>(1.0);
 
   int _activePointers = 0; // Aktif parmak sayısı
+
+  // RepaintBoundary key for capturing content
+  final GlobalKey _repaintBoundaryKey = GlobalKey();
 
   @override
   void initState() {
@@ -137,6 +147,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     transformationController.dispose();
     _repaintNotifier.dispose();
     selectedAreaNotifier.dispose();
+    _magnifierAreaNotifier.dispose();
     _pdfScaleNotifier.dispose();
     _canUndoNotifier.dispose();
     _canRedoNotifier.dispose();
@@ -661,13 +672,13 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   void zoomIn() {
     final currentScale = transformationController.value.getMaxScaleOnAxis();
     final newScale = (currentScale * 1.2).clamp(_minZoom, _maxZoom);
-    transformationController.value = Matrix4.identity()..scale(newScale);
+    transformationController.value = Matrix4.identity()..scaleByVector3(Vector3(newScale, newScale, 1));
   }
 
   void zoomOut() {
     final currentScale = transformationController.value.getMaxScaleOnAxis();
     final newScale = (currentScale / 1.2).clamp(_minZoom, _maxZoom);
-    transformationController.value = Matrix4.identity()..scale(newScale);
+    transformationController.value = Matrix4.identity()..scaleByVector3(Vector3(newScale, newScale, 1));
   }
 
   void resetZoom() {
@@ -703,6 +714,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       shape: false,
       mouse: false,
       selection: false,
+      magnifier: false,
     );
   }
 
@@ -715,6 +727,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       shape: false,
       mouse: false,
       selection: false,
+      magnifier: false,
     );
   }
 
@@ -727,6 +740,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       shape: false,
       mouse: false,
       selection: false,
+      magnifier: false,
     );
   }
 
@@ -740,6 +754,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       eraser: false,
       shape: false,
       selection: false,
+      magnifier: false,
     );
   }
 
@@ -752,6 +767,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       grab: false,
       shape: false,
       selection: false,
+      magnifier: false,
     );
   }
 
@@ -764,6 +780,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       grab: false,
       mouse: false,
       selection: false,
+      magnifier: false,
     );
   }
 
@@ -777,6 +794,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       grab: false,
       mouse: false,
       selection: false,
+      magnifier: false,
     );
   }
 
@@ -790,6 +808,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       grab: false,
       mouse: false,
       selection: false,
+      magnifier: false,
     );
   }
 
@@ -806,16 +825,33 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       eraser: false,
       grab: false,
       shape: false,
+      magnifier: false,
     );
     if (!value) {
       selectedAreaNotifier.value = null;
-      _selectionStart = null;
+      _selectionStartScreen = null;
+    }
+  }
+
+  void setMagnifier(bool value) {
+    toolNotifier.value = toolNotifier.value.copyWith(
+      magnifier: value,
+      mouse: false,
+      pencil: false,
+      highlighter: false,
+      eraser: false,
+      grab: false,
+      shape: false,
+      selection: false,
+    );
+    if (!value) {
+      _magnifierState = MagnifierState();
+      _magnifierAreaNotifier.value = null;
     }
   }
 
   void clearSelection() {
     selectedAreaNotifier.value = null;
-    _selectionStart = null;
     _selectionStartScreen = null;
     setMouse(true);
   }
@@ -842,6 +878,139 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     final tool = toolNotifier.value;
     if (tool.selection) {
       _selectionStartScreen = null;
+    }
+  }
+
+  void _handleMagnifierPointerDown(PointerDownEvent event) {
+    final tool = toolNotifier.value;
+    if (!tool.magnifier) return;
+
+    final position = event.localPosition;
+    final handle = _magnifierState.getHandleAtPosition(position);
+
+    if (handle != null) {
+      // Start resizing
+      setState(() {
+        _magnifierState = _magnifierState.copyWith(
+          isResizing: true,
+          resizeHandle: handle,
+        );
+      });
+    } else if (_magnifierState.selectedArea != null &&
+               _magnifierState.isPointInSelectedArea(position)) {
+      // Do nothing - user tapped inside the selection
+    } else {
+      // Start new selection
+      setState(() {
+        _magnifierState = _magnifierState.copyWith(
+          startPoint: position,
+          currentPoint: position,
+          isSelecting: true,
+          clearSelectedArea: true,
+        );
+        _magnifierAreaNotifier.value = null;
+      });
+    }
+  }
+
+  void _handleMagnifierPointerMove(PointerMoveEvent event) {
+    final tool = toolNotifier.value;
+    if (!tool.magnifier) return;
+
+    final position = event.localPosition;
+
+    if (_magnifierState.isSelecting) {
+      // Update selection area
+      setState(() {
+        _magnifierState = _magnifierState.copyWith(
+          currentPoint: position,
+        );
+        _magnifierAreaNotifier.value = _magnifierState.getSelectionRect();
+      });
+    } else if (_magnifierState.isResizing && _magnifierState.selectedArea != null) {
+      // Resize the selected area
+      final currentArea = _magnifierState.selectedArea!;
+      Rect newArea;
+
+      switch (_magnifierState.resizeHandle) {
+        case 'topLeft':
+          newArea = Rect.fromLTRB(
+            position.dx,
+            position.dy,
+            currentArea.right,
+            currentArea.bottom,
+          );
+          break;
+        case 'topRight':
+          newArea = Rect.fromLTRB(
+            currentArea.left,
+            position.dy,
+            position.dx,
+            currentArea.bottom,
+          );
+          break;
+        case 'bottomLeft':
+          newArea = Rect.fromLTRB(
+            position.dx,
+            currentArea.top,
+            currentArea.right,
+            position.dy,
+          );
+          break;
+        case 'bottomRight':
+          newArea = Rect.fromLTRB(
+            currentArea.left,
+            currentArea.top,
+            position.dx,
+            position.dy,
+          );
+          break;
+        default:
+          newArea = currentArea;
+      }
+
+      setState(() {
+        _magnifierState = _magnifierState.copyWith(
+          selectedArea: newArea,
+        );
+        _magnifierAreaNotifier.value = newArea;
+      });
+    }
+  }
+
+  void _handleMagnifierPointerUp(PointerUpEvent event) {
+    final tool = toolNotifier.value;
+    if (!tool.magnifier) return;
+
+    if (_magnifierState.isSelecting) {
+      final selectionRect = _magnifierState.getSelectionRect();
+      if (selectionRect != null && selectionRect.width > 10 && selectionRect.height > 10) {
+        setState(() {
+          _magnifierState = _magnifierState.copyWith(
+            selectedArea: selectionRect,
+            isSelecting: false,
+            clearStartPoint: true,
+            clearCurrentPoint: true,
+          );
+          _magnifierAreaNotifier.value = null;
+          _showMagnifiedView = true;
+          _magnifiedRect = selectionRect;
+        });
+      }
+    } else if (_magnifierState.isResizing) {
+      final resizedArea = _magnifierState.selectedArea;
+      if (resizedArea != null && resizedArea.width > 10 && resizedArea.height > 10) {
+        setState(() {
+          _showMagnifiedView = true;
+          _magnifiedRect = resizedArea;
+        });
+      }
+      setState(() {
+        _magnifierState = _magnifierState.copyWith(
+          isResizing: false,
+          clearResizeHandle: true,
+        );
+      });
     }
   }
 
@@ -1176,7 +1345,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   Widget build(BuildContext context) {
     final tool = toolNotifier.value;
 
-    return Listener(
+    final mainContent = Listener(
       onPointerSignal: (pointerSignal) {
         if (pointerSignal is PointerScrollEvent) {
           final isCtrlPressed = HardwareKeyboard.instance.isControlPressed;
@@ -1200,7 +1369,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
             if (newScale != currentScale) {
               transformationController.value = Matrix4.identity()
-                ..scale(newScale);
+                ..scaleByVector3(Vector3(newScale, newScale, 1));
             }
           }
         }
@@ -1251,6 +1420,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
               ? SystemMouseCursors.click
               : tool.selection
               ? SystemMouseCursors.precise
+              : tool.magnifier
+              ? SystemMouseCursors.zoomIn
               : SystemMouseCursors.basic,
           child: Stack(
             children: [
@@ -1363,7 +1534,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                         child: wrappedContent,
                       );
                     } else {
-                      // Diğer modlarda GestureDetector yok
+                      // Diğer modlarda (magnifier dahil) GestureDetector yok
                       return wrappedContent;
                     }
                   },
@@ -1397,10 +1568,64 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                   );
                 },
               ),
+              ValueListenableBuilder<ToolState>(
+                valueListenable: toolNotifier,
+                builder: (context, currentTool, child) {
+                  if (!currentTool.magnifier) {
+                    return const SizedBox.shrink();
+                  }
+                  return Positioned.fill(
+                    child: Listener(
+                      onPointerDown: _handleMagnifierPointerDown,
+                      onPointerMove: _handleMagnifierPointerMove,
+                      onPointerUp: _handleMagnifierPointerUp,
+                      behavior: HitTestBehavior.translucent,
+                      child: ValueListenableBuilder<Rect?>(
+                        valueListenable: _magnifierAreaNotifier,
+                        builder: (context, magnifierRect, child) {
+                          if (magnifierRect == null || magnifierRect == Rect.zero) {
+                            return Container(color: Colors.transparent);
+                          }
+                          return CustomPaint(
+                            painter: MagnifierPainter(
+                              selectedArea: magnifierRect,
+                              magnification: 2.0,
+                            ),
+                            size: Size.infinite,
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         ),
       ),
+    );
+
+    // Return main content with magnified overlay if needed
+    return Stack(
+      children: [
+        RepaintBoundary(
+          key: _repaintBoundaryKey,
+          child: mainContent,
+        ),
+        if (_showMagnifiedView && _magnifiedRect != null)
+          MagnifiedContentOverlay(
+            selectedArea: _magnifiedRect!,
+            contentKey: _repaintBoundaryKey,
+            magnification: 2.0,
+            onClose: () {
+              setState(() {
+                _showMagnifiedView = false;
+                _magnifiedRect = null;
+                _magnifierState = MagnifierState();
+              });
+            },
+          ),
+      ],
     );
   }
 }
@@ -1413,7 +1638,7 @@ class _SelectionPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.blue.withOpacity(0.3)
+      ..color = Colors.blue.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()

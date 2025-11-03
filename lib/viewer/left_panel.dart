@@ -128,6 +128,13 @@ class _FloatingLeftPanelState extends State<FloatingLeftPanel> {
             onPressed: () => state.setHighlighter(true),
           ),
           ToolButtonCompact(
+            icon: Icons.search,
+            tooltip: 'Büyüteç',
+            isSelected: tool.magnifier,
+            selectedColor: const Color(0xFF9C27B0),
+            onPressed: () => state.setMagnifier(!tool.magnifier),
+          ),
+          ToolButtonCompact(
             icon: Icons.cleaning_services,
             tooltip: 'Silgi',
             isSelected: tool.eraser,
@@ -314,6 +321,13 @@ class _FloatingLeftPanelState extends State<FloatingLeftPanel> {
               isSelected: tool.selection,
               selectedColor: const Color(0xFF2196F3),
               onPressed: () => state.setSelection(!tool.selection),
+            ),
+            ToolButton(
+              icon: Icons.search,
+              tooltip: 'Büyüteç',
+              isSelected: tool.magnifier,
+              selectedColor: const Color(0xFF9C27B0),
+              onPressed: () => state.setMagnifier(!tool.magnifier),
             ),
             ToolButton(
               icon: Icons.cleaning_services,
