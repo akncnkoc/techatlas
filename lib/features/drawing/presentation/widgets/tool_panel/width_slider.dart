@@ -27,10 +27,7 @@ class WidthSlider extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -56,10 +53,10 @@ class WidthSlider extends StatelessWidget {
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
           ),
           child: Slider(
-            value: width,
+            value: width.clamp(min, max),
             min: min,
             max: max,
-            divisions: ((max - min) * 2).toInt(),
+            divisions: ((max - min) * 2).toInt().clamp(1, 100),
             onChanged: onChanged,
           ),
         ),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'package:archive/archive.dart';
+import 'package:image/image.dart' as img;
 import 'stroke.dart';
 import 'drawing_painter.dart';
 import 'tool_state.dart';
@@ -18,7 +19,6 @@ import 'dart:math' show cos, sin;
 // Import new components and utilities
 import '../core/constants/app_constants.dart';
 import '../core/utils/matrix_utils.dart' as custom_matrix;
-import '../features/pdf_viewer/presentation/widgets/dialogs/image_gallery_dialog.dart';
 
 class PdfViewerWithDrawing extends StatefulWidget {
   final PdfController controller;
@@ -52,7 +52,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       magnifier: false,
       selectedShape: ShapeType.rectangle,
       color: Colors.red,
-      width: 3.0,
+      width: 0.7,
     ),
   );
 
@@ -88,15 +88,19 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   DateTime? _panStartTime;
 
   // Use AppConstants for gesture thresholds
-  static const double _swipeVelocityThreshold = AppConstants.swipeVelocityThreshold;
-  static const double _swipeDistanceThreshold = AppConstants.swipeDistanceThreshold;
+  static const double _swipeVelocityThreshold =
+      AppConstants.swipeVelocityThreshold;
+  static const double _swipeDistanceThreshold =
+      AppConstants.swipeDistanceThreshold;
 
   final ValueNotifier<Rect?> selectedAreaNotifier = ValueNotifier<Rect?>(null);
   Offset? _selectionStartScreen;
 
   // Magnifier state
   MagnifierState _magnifierState = MagnifierState();
-  final ValueNotifier<Rect?> _magnifierAreaNotifier = ValueNotifier<Rect?>(null);
+  final ValueNotifier<Rect?> _magnifierAreaNotifier = ValueNotifier<Rect?>(
+    null,
+  );
   bool _showMagnifiedView = false;
   Rect? _magnifiedRect;
 
@@ -104,6 +108,11 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   final ValueNotifier<double> _pdfScaleNotifier = ValueNotifier<double>(1.0);
 
   int _activePointers = 0; // Aktif parmak sayısı
+
+  // Palm rejection: Track if stylus is currently active
+  bool _isStylusActive = false;
+  DateTime? _lastStylusTime;
+  static const Duration _palmRejectionWindow = Duration(milliseconds: 500);
 
   // RepaintBoundary key for capturing content
   final GlobalKey _repaintBoundaryKey = GlobalKey();
@@ -191,6 +200,9 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
   // Use custom MatrixUtils for point transformation
   Offset _transformPoint(Offset point) {
+    // GestureDetector is OUTSIDE InteractiveViewer
+    // So we receive screen coordinates and need to convert to content coordinates
+    // This requires inverse of the transformation matrix
     return custom_matrix.MatrixUtils.transformPoint(
       transformationController.value,
       point,
@@ -249,20 +261,25 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     }
 
     // 2 parmak hareketi: Pinch to zoom (gerçek zamanlı)
-    if (details.pointerCount == 2 && _scaleStartTransform != null && _scaleStartFocalPoint != null) {
+    if (details.pointerCount == 2 &&
+        _scaleStartTransform != null &&
+        _scaleStartFocalPoint != null) {
       final scaleChange = details.scale;
 
       // Zoom limitlerini kontrol et
-      final startScale = custom_matrix.MatrixUtils.getScale(_scaleStartTransform!);
+      final startScale = custom_matrix.MatrixUtils.getScale(
+        _scaleStartTransform!,
+      );
       final newScale = (startScale * scaleChange).clamp(_minZoom, _maxZoom);
 
       // Use custom MatrixUtils for zoom transformation
-      transformationController.value = custom_matrix.MatrixUtils.createZoomTransform(
-        focalPoint: _scaleStartFocalPoint!,
-        startTransform: _scaleStartTransform!,
-        startScale: startScale,
-        newScale: newScale,
-      );
+      transformationController.value =
+          custom_matrix.MatrixUtils.createZoomTransform(
+            focalPoint: _scaleStartFocalPoint!,
+            startTransform: _scaleStartTransform!,
+            startScale: startScale,
+            newScale: newScale,
+          );
 
       return;
     }
@@ -271,13 +288,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     if (details.pointerCount == 1) {
       if ((tool.grab || tool.mouse) && _isPanning) {
         _panLastPosition = details.localFocalPoint;
-
-        final currentTransform = transformationController.value;
-        final newTransform = Matrix4.copy(currentTransform)
-          ..translateByVector3(
-            Vector3(details.focalPointDelta.dx, details.focalPointDelta.dy, 0),
-          );
-        transformationController.value = newTransform;
+        // InteractiveViewer handles panning itself now (panEnabled = true)
       } else if (tool.shape) {
         _updateShape(details.localFocalPoint);
       } else if (tool.pencil || tool.eraser || tool.highlighter) {
@@ -340,8 +351,113 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     _lastRotation = 0.0;
   }
 
+  // New pointer handlers for better stylus support
+  void _handleDrawingPointerDown(PointerDownEvent event) {
+    final tool = toolNotifier.value;
+
+    print(
+      "🖊️ Drawing PointerDown: kind=${event.kind}, device=${event.device}, position=${event.localPosition}",
+    );
+
+    // Palm rejection: Check if this is a stylus or touch
+    final isStylus = event.kind == PointerDeviceKind.stylus;
+    final isTouch = event.kind == PointerDeviceKind.touch;
+
+    // If stylus is detected, mark it as active
+    if (isStylus) {
+      _isStylusActive = true;
+      _lastStylusTime = DateTime.now();
+      print("✅ Stylus detected - palm rejection active");
+    }
+
+    // Reject touch input if stylus was recently active (palm rejection)
+    if (isTouch && _isStylusActive && _lastStylusTime != null) {
+      final timeSinceStylus = DateTime.now().difference(_lastStylusTime!);
+      if (timeSinceStylus < _palmRejectionWindow) {
+        print("🚫 Palm rejection: Ignoring touch input (stylus active)");
+        return;
+      }
+    }
+
+    if (_rotationAngle != 0.0) {
+      print("⚠️ Rotation is not zero, skipping draw");
+      return;
+    }
+
+    if (tool.shape) {
+      _startShape(event.localPosition);
+      print("📐 Shape started with ${event.kind}");
+    } else if (tool.pencil || tool.eraser || tool.highlighter) {
+      _startStroke(event.localPosition);
+      print("✏️ Stroke started with ${event.kind}");
+    }
+  }
+
+  void _handleDrawingPointerMove(PointerMoveEvent event) {
+    if (!_isDrawing && _activeStroke == null) return;
+
+    // Palm rejection: Ignore touch events when stylus is active
+    final isTouch = event.kind == PointerDeviceKind.touch;
+    if (isTouch && _isStylusActive && _lastStylusTime != null) {
+      final timeSinceStylus = DateTime.now().difference(_lastStylusTime!);
+      if (timeSinceStylus < _palmRejectionWindow) {
+        return; // Silently ignore palm touches
+      }
+    }
+
+    final tool = toolNotifier.value;
+
+    if (tool.shape) {
+      _updateShape(event.localPosition);
+    } else if (tool.pencil || tool.eraser || tool.highlighter) {
+      _updateStroke(event.localPosition);
+    }
+  }
+
+  void _handleDrawingPointerUp(PointerUpEvent event) {
+    final tool = toolNotifier.value;
+
+    print("🖊️ Drawing PointerUp: kind=${event.kind}");
+
+    // Reset stylus active state when stylus is lifted
+    if (event.kind == PointerDeviceKind.stylus) {
+      // Keep stylus active for a short window after lifting
+      // This helps reject palm touches that happen right after drawing
+      print("📝 Stylus lifted - palm rejection window active");
+    }
+
+    // Palm rejection: Ignore touch events when stylus is active
+    final isTouch = event.kind == PointerDeviceKind.touch;
+    if (isTouch && _isStylusActive && _lastStylusTime != null) {
+      final timeSinceStylus = DateTime.now().difference(_lastStylusTime!);
+      if (timeSinceStylus < _palmRejectionWindow) {
+        print("🚫 Palm rejection: Ignoring touch up event");
+        return;
+      }
+    }
+
+    if (tool.shape) {
+      _endShape();
+    } else if (tool.pencil || tool.eraser || tool.highlighter) {
+      _endStroke();
+    }
+  }
+
+  void _handleDrawingPointerCancel(PointerCancelEvent event) {
+    print("❌ Drawing PointerCancel: kind=${event.kind}");
+
+    // Clean up if drawing was cancelled
+    if (_isDrawing || _activeStroke != null) {
+      setState(() {
+        _activeStroke = null;
+        _isDrawing = false;
+        _shapeStartPoint = null;
+      });
+    }
+  }
+
   void _startShape(Offset position) {
-    final transformedPosition = position;
+    final transformedPosition = _transformPoint(position);
 
     setState(() {
       _isDrawing = true;
@@ -396,9 +512,13 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   }
 
   void _startStroke(Offset position) {
-    print("🖊️ _startStroke called at $position");
+    print("🖊️ _startStroke called at screen position: $position");
     final transformedPosition = _transformPoint(position);
-    print("🔄 Transformed position: $transformedPosition");
+    print("🔄 Transformed to content position: $transformedPosition");
+    print("📊 Current transform matrix: ${transformationController.value}");
+    print(
+      "🔍 Current scale: ${transformationController.value.getMaxScaleOnAxis()}",
+    );
 
     setState(() {
       _isDrawing = true;
@@ -442,28 +562,18 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     if (tool.eraser) {
       _activeStroke?.points.add(transformedPosition);
       _eraseAt(transformedPosition, tool.width);
+      _repaintNotifier.value++;
     } else {
-      if (_activeStroke != null && _activeStroke!.points.isNotEmpty) {
-        final lastPoint = _activeStroke!.points.last;
-        final distance = (transformedPosition - lastPoint).distance;
-
-        final minDistance = tool.highlighter
-            ? AppConstants.minHighlighterDistance
-            : AppConstants.minDrawingDistance;
-
-        if (distance > minDistance) {
-          _activeStroke!.points.add(transformedPosition);
-        }
-      } else {
-        _activeStroke?.points.add(transformedPosition);
-      }
+      // Add all points during active drawing for real-time smoothness
+      // No distance check - we want immediate feedback
+      _activeStroke?.points.add(transformedPosition);
+      _repaintNotifier.value++;
     }
-
-    _repaintNotifier.value++;
   }
 
   void _endStroke() {
     setState(() {
+      // No simplification - keep all points for maximum quality
       _activeStroke = null;
       _isDrawing = false;
       _repaintNotifier.value++;
@@ -672,13 +782,15 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   void zoomIn() {
     final currentScale = transformationController.value.getMaxScaleOnAxis();
     final newScale = (currentScale * 1.2).clamp(_minZoom, _maxZoom);
-    transformationController.value = Matrix4.identity()..scaleByVector3(Vector3(newScale, newScale, 1));
+    transformationController.value = Matrix4.identity()
+      ..scaleByVector3(Vector3(newScale, newScale, 1));
   }
 
   void zoomOut() {
     final currentScale = transformationController.value.getMaxScaleOnAxis();
     final newScale = (currentScale / 1.2).clamp(_minZoom, _maxZoom);
-    transformationController.value = Matrix4.identity()..scaleByVector3(Vector3(newScale, newScale, 1));
+    transformationController.value = Matrix4.identity()
+      ..scaleByVector3(Vector3(newScale, newScale, 1));
   }
 
   void resetZoom() {
@@ -897,7 +1009,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
         );
       });
     } else if (_magnifierState.selectedArea != null &&
-               _magnifierState.isPointInSelectedArea(position)) {
+        _magnifierState.isPointInSelectedArea(position)) {
       // Do nothing - user tapped inside the selection
     } else {
       // Start new selection
@@ -922,12 +1034,11 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     if (_magnifierState.isSelecting) {
       // Update selection area
       setState(() {
-        _magnifierState = _magnifierState.copyWith(
-          currentPoint: position,
-        );
+        _magnifierState = _magnifierState.copyWith(currentPoint: position);
         _magnifierAreaNotifier.value = _magnifierState.getSelectionRect();
       });
-    } else if (_magnifierState.isResizing && _magnifierState.selectedArea != null) {
+    } else if (_magnifierState.isResizing &&
+        _magnifierState.selectedArea != null) {
       // Resize the selected area
       final currentArea = _magnifierState.selectedArea!;
       Rect newArea;
@@ -970,9 +1081,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       }
 
       setState(() {
-        _magnifierState = _magnifierState.copyWith(
-          selectedArea: newArea,
-        );
+        _magnifierState = _magnifierState.copyWith(selectedArea: newArea);
         _magnifierAreaNotifier.value = newArea;
       });
     }
@@ -984,7 +1093,9 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
     if (_magnifierState.isSelecting) {
       final selectionRect = _magnifierState.getSelectionRect();
-      if (selectionRect != null && selectionRect.width > 10 && selectionRect.height > 10) {
+      if (selectionRect != null &&
+          selectionRect.width > 10 &&
+          selectionRect.height > 10) {
         setState(() {
           _magnifierState = _magnifierState.copyWith(
             selectedArea: selectionRect,
@@ -999,7 +1110,9 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       }
     } else if (_magnifierState.isResizing) {
       final resizedArea = _magnifierState.selectedArea;
-      if (resizedArea != null && resizedArea.width > 10 && resizedArea.height > 10) {
+      if (resizedArea != null &&
+          resizedArea.width > 10 &&
+          resizedArea.height > 10) {
         setState(() {
           _showMagnifiedView = true;
           _magnifiedRect = resizedArea;
@@ -1067,15 +1180,17 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
       if (!mounted) return;
 
-      // Use new ImageGalleryDialog component
+      // ÇİZİMLE DESTEKLİ DİYALOG
       showDialog(
         context: context,
-        builder: (context) => ImageGalleryDialog(
+        builder: (context) => _SwipeableImageDialog(
           imageList: imageList,
           initialIndex: initialIndex,
           cropData: widget.cropData!,
           cropsForPage: cropsForPage,
           pdfController: widget.controller,
+          toolNotifier: toolNotifier,
+          zipFilePath: widget.zipFilePath,
         ),
       );
 
@@ -1130,14 +1245,6 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
             final cropRefWidth = cropReferenceSize.width;
             final cropRefHeight = cropReferenceSize.height;
 
-            if (cropsForPage.isNotEmpty) {
-              print('═══════════════════════════════════════');
-              print('📄 PDF Size: ${pdfWidth.toStringAsFixed(1)}x${pdfHeight.toStringAsFixed(1)}');
-              print('🖼️  Crop Reference: ${cropRefWidth.toStringAsFixed(1)}x${cropRefHeight.toStringAsFixed(1)}');
-              print('🔢 Questions on page $_currentPage: ${cropsForPage.length}');
-              print('═══════════════════════════════════════');
-            }
-
             return LayoutBuilder(
               builder: (context, constraints) {
                 final renderedWidth = constraints.maxWidth;
@@ -1151,7 +1258,6 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                 }
 
                 if (cropRefWidth == 0 || cropRefHeight == 0) {
-                  print('⚠️  Crop reference size is zero!');
                   return const SizedBox.shrink();
                 }
 
@@ -1173,158 +1279,137 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                   offsetY = (renderedHeight - actualPdfHeight) / 2;
                 }
 
-                final cropToPdfScaleX = pdfWidth / cropRefWidth;
-                final cropToPdfScaleY = pdfHeight / cropRefHeight;
-
-                final pdfToRenderScaleX = actualPdfWidth / pdfWidth;
-                final pdfToRenderScaleY = actualPdfHeight / pdfHeight;
-
-                final totalScaleX = cropToPdfScaleX * pdfToRenderScaleX;
-                final totalScaleY = cropToPdfScaleY * pdfToRenderScaleY;
-
-                if (cropsForPage.isNotEmpty) {
-                  print(
-                    '📐 Container: ${renderedWidth.toStringAsFixed(1)}x${renderedHeight.toStringAsFixed(1)}',
-                  );
-                  print(
-                    '📊 Actual PDF Render: ${actualPdfWidth.toStringAsFixed(1)}x${actualPdfHeight.toStringAsFixed(1)}',
-                  );
-                  print(
-                    '📍 Offset: (${offsetX.toStringAsFixed(1)}, ${offsetY.toStringAsFixed(1)})',
-                  );
-                  print(
-                    '🔄 Crop→PDF Scale: ${cropToPdfScaleX.toStringAsFixed(3)}x${cropToPdfScaleY.toStringAsFixed(3)}',
-                  );
-                  print(
-                    '📊 Total Scale: ${totalScaleX.toStringAsFixed(3)}x${totalScaleY.toStringAsFixed(3)}',
-                  );
-                }
-
                 return ClipRect(
                   child: Stack(
                     clipBehavior: Clip.hardEdge,
                     children: cropsForPage.map((crop) {
+                      // Yeni JSON ile referans: page_dimensions -> getReferenceSizeForPage
+                      // Top-left kökenli koordinat varsayımı (sayfa görüntüsü koordinatları)
+                      final scaleX = actualPdfWidth / cropRefWidth;
+                      final scaleY = actualPdfHeight / cropRefHeight;
 
-                      // Tüm crop koordinatlarını göster
-                      print(
-                        '🔍 Q${crop.questionNumber}: x1=${crop.coordinates.x1}, y1=${crop.coordinates.y1}, x2=${crop.coordinates.x2}, y2=${crop.coordinates.y2}, width=${crop.coordinates.width}, height=${crop.coordinates.height}',
-                      );
+                      final cropScreenX =
+                          crop.coordinates.x1 * scaleX + offsetX;
+                      final cropScreenY =
+                          crop.coordinates.y1 * scaleY + offsetY;
 
-                      // YENİ ÇÖZÜM: Soru numarasının TAM KONUMUNU kullan!
-                      double buttonLeft, buttonTop;
-
-                      if (crop.questionNumberDetails != null &&
-                          crop.questionNumberDetails!.location != null) {
-                        // Soru numarası konumu var - butonu onun yanına koy
-                        final qNumLoc = crop.questionNumberDetails!.location!;
-                        final qNumX = qNumLoc.x.toDouble();
-                        final qNumY = qNumLoc.y.toDouble();
-
-                        // Soru numarası pozisyonunu ekrana çevir
-                        final qNumScreenX = (qNumX / cropRefWidth) * actualPdfWidth + offsetX;
-                        final qNumScreenY = (qNumY / cropRefHeight) * actualPdfHeight + offsetY;
-
-                        // Butonu soru numarasının SOL TARAFINA koy
-                        buttonLeft = qNumScreenX - 35; // 35px sola (30px buton + 5px boşluk)
-                        buttonTop = qNumScreenY;
-
-                        print(
-                          '  ✨ QuestionNum Location: ($qNumX,$qNumY) → Screen(${qNumScreenX.toStringAsFixed(1)},${qNumScreenY.toStringAsFixed(1)})',
-                        );
-                      } else {
-                        // Soru numarası konumu yok - eski yöntem (crop sol üst köşesi)
-                        final cropX = crop.coordinates.x1.toDouble();
-                        final cropY = crop.coordinates.y1.toDouble();
-
-                        buttonLeft = (cropX / cropRefWidth) * actualPdfWidth + offsetX;
-                        buttonTop = (cropY / cropRefHeight) * actualPdfHeight + offsetY;
-
-                        print(
-                          '  ⚠️  No question number location, using crop top-left',
-                        );
-                      }
-
-                      print(
-                        '  🎯 Button Position: (${buttonLeft.toStringAsFixed(1)},${buttonTop.toStringAsFixed(1)})',
-                      );
-
-                      // Butonun boyutu
                       const buttonSize = 30.0;
+                      final buttonLeft = cropScreenX - buttonSize / 2;
+                      final buttonTop = cropScreenY - buttonSize / 2;
 
-                      // Sadece PDF alanı içindeki butonları göster
-                      if (buttonLeft < offsetX ||
+                      if (buttonLeft < offsetX - buttonSize ||
                           buttonLeft > offsetX + actualPdfWidth ||
-                          buttonTop < offsetY ||
+                          buttonTop < offsetY - buttonSize ||
                           buttonTop > offsetY + actualPdfHeight) {
                         return const SizedBox.shrink();
                       }
 
-                      // DEBUG: Crop alanını göster (turuncu kutu)
-                      final cropScreenX = (crop.coordinates.x1.toDouble() / cropRefWidth) * actualPdfWidth + offsetX;
-                      final cropScreenY = (crop.coordinates.y1.toDouble() / cropRefHeight) * actualPdfHeight + offsetY;
-                      final cropWidth = (crop.coordinates.width / cropRefWidth) * actualPdfWidth;
-                      final cropHeight = (crop.coordinates.height / cropRefHeight) * actualPdfHeight;
+                      // Check if there's any actual solution data
+                      final hasAnswerChoice =
+                          (crop.solutionMetadata?.answerChoice != null ||
+                          crop.userSolution?.answerChoice != null);
+                      final hasExplanation =
+                          (crop.solutionMetadata?.explanation != null &&
+                              crop.solutionMetadata!.explanation!
+                                  .trim()
+                                  .isNotEmpty) ||
+                          (crop.userSolution?.explanation != null &&
+                              crop.userSolution!.explanation!
+                                  .trim()
+                                  .isNotEmpty);
+                      final hasDrawing =
+                          (crop.solutionMetadata?.drawingFile != null &&
+                              crop.solutionMetadata!.drawingFile!
+                                  .trim()
+                                  .isNotEmpty) ||
+                          (crop.userSolution?.drawingFile != null &&
+                              crop.userSolution!.drawingFile!
+                                  .trim()
+                                  .isNotEmpty);
+                      final hasAiSolution =
+                          crop.solutionMetadata?.aiSolution != null ||
+                          crop.userSolution?.aiSolution != null;
+
+                      final hasSolution =
+                          hasAnswerChoice ||
+                          hasExplanation ||
+                          hasDrawing ||
+                          hasAiSolution;
+                      final buttonColor = hasSolution
+                          ? Colors.green.shade600
+                          : Colors.blue.shade600;
 
                       return Stack(
                         children: [
-                          // DEBUG: Crop alanını renkli translucent box ile göster
-                          Positioned(
-                            left: cropScreenX,
-                            top: cropScreenY,
-                            child: Container(
-                              width: cropWidth,
-                              height: cropHeight,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.orange, width: 3),
-                                color: Colors.orange.withValues(alpha: 0.3),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'Q${crop.questionNumber ?? "?"}',
-                                  style: TextStyle(
-                                    color: Colors.orange.shade900,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    backgroundColor: Colors.white.withValues(alpha: 0.7),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
                           // Buton
                           Positioned(
                             left: buttonLeft,
                             top: buttonTop,
                             child: GestureDetector(
                               onTap: () {
-                                print('Question ${crop.questionNumber} clicked!');
+                                print(
+                                  'Question ${crop.questionNumber} clicked!',
+                                );
+                                // Show crop image with answer section
                                 _showCropImage(crop.imageFile);
                               },
-                              child: Container(
-                                width: buttonSize,
-                                height: buttonSize,
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade600,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.5),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    width: buttonSize,
+                                    height: buttonSize,
+                                    decoration: BoxDecoration(
+                                      color: buttonColor,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    "${crop.questionNumber ?? '?'}",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
+                                    child: Center(
+                                      child: Text(
+                                        "${crop.questionNumber ?? '?'}",
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
+                                  // Solution indicator badge
+                                  if (hasSolution)
+                                    Positioned(
+                                      right: -2,
+                                      top: -2,
+                                      child: Container(
+                                        width: 12,
+                                        height: 12,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: buttonColor,
+                                            width: 1.5,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.check,
+                                          size: 8,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                           ),
@@ -1430,116 +1515,98 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                 minScale: _minZoom,
                 maxScale: _maxZoom,
                 boundaryMargin: const EdgeInsets.all(20),
-                // GestureDetector kullandığımız için panEnabled false olmalı
-                // Aksi halde gesture çakışması oluşur
-                panEnabled: false,
-                // Zoom her zaman aktif ama GestureDetector engelleyebilir
+                panEnabled: tool.mouse || tool.grab,
                 scaleEnabled: true,
-                child: Builder(
-                  builder: (context) {
-                    final pdfContent = Transform.rotate(
-                      angle: _rotationAngle,
-                      child: Stack(
-                        children: [
-                          ValueListenableBuilder<double>(
-                            valueListenable: _pdfScaleNotifier,
-                            builder: (context, scale, child) {
-                              final quality = (scale * 6).clamp(4.0, 12.0);
+                child: Listener(
+                  onPointerDown: (event) {
+                    setState(() {
+                      _activePointers++;
+                      print(
+                        "👆 Pointer down: $_activePointers active pointers",
+                      );
+                    });
+                  },
+                  onPointerUp: (event) {
+                    setState(() {
+                      _activePointers--;
+                      print("👇 Pointer up: $_activePointers active pointers");
+                    });
+                  },
+                  onPointerCancel: (event) {
+                    setState(() {
+                      _activePointers--;
+                      print(
+                        "❌ Pointer cancel: $_activePointers active pointers",
+                      );
+                    });
+                  },
+                  child: Transform.rotate(
+                    angle: _rotationAngle,
+                    child: Stack(
+                      children: [
+                        ValueListenableBuilder<double>(
+                          valueListenable: _pdfScaleNotifier,
+                          builder: (context, scale, child) {
+                            final quality = (scale * 6).clamp(4.0, 12.0);
 
-                              return PdfView(
-                                controller: widget.controller,
-                                renderer: (page) {
-                                  return page.render(
-                                    width: (page.width * quality).toDouble(),
-                                    height: (page.height * quality).toDouble(),
-                                    format: PdfPageImageFormat.png,
-                                    backgroundColor: '#FFFFFF',
-                                  );
-                                },
+                            return PdfView(
+                              controller: widget.controller,
+                              renderer: (page) {
+                                return page.render(
+                                  width: (page.width * quality).toDouble(),
+                                  height: (page.height * quality).toDouble(),
+                                  format: PdfPageImageFormat.png,
+                                  backgroundColor: '#FFFFFF',
+                                );
+                              },
+                            );
+                          },
+                        ),
+                        Positioned.fill(
+                          child: ValueListenableBuilder(
+                            valueListenable: _repaintNotifier,
+                            builder: (_, __, ___) {
+                              return CustomPaint(
+                                painter: DrawingPainter(strokes: _strokes),
+                                size: Size.infinite,
+                                child: Container(),
                               );
                             },
                           ),
+                        ),
+                        if (widget.cropData != null)
                           Positioned.fill(
-                            child: ValueListenableBuilder(
-                              valueListenable: _repaintNotifier,
-                              builder: (_, __, ___) {
-                                return CustomPaint(
-                                  painter: DrawingPainter(strokes: _strokes),
-                                  size: Size.infinite,
-                                  child: Container(),
-                                );
-                              },
+                            child: IgnorePointer(
+                              ignoring: false,
+                              child: _buildCropButtons(),
                             ),
                           ),
-                          if (widget.cropData != null)
-                            Positioned.fill(
-                              child: IgnorePointer(
-                                ignoring: false,
-                                child: _buildCropButtons(),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-
-                    // Pointer count tracking için Listener ekle
-                    final wrappedContent = Listener(
-                      onPointerDown: (event) {
-                        setState(() {
-                          _activePointers++;
-                          print(
-                            "👆 Pointer down: $_activePointers active pointers",
-                          );
-                        });
-                      },
-                      onPointerUp: (event) {
-                        setState(() {
-                          _activePointers--;
-                          print(
-                            "👇 Pointer up: $_activePointers active pointers",
-                          );
-                        });
-                      },
-                      onPointerCancel: (event) {
-                        setState(() {
-                          _activePointers--;
-                          print(
-                            "❌ Pointer cancel: $_activePointers active pointers",
-                          );
-                        });
-                      },
-                      child: pdfContent,
-                    );
-
-                    // Sadece çizim araçları aktifken GestureDetector kullan
-                    // Mouse/grab modunda InteractiveViewer'ın kendi özelliklerini kullan
-                    if (tool.pencil ||
-                        tool.eraser ||
-                        tool.highlighter ||
-                        tool.shape) {
-                      return GestureDetector(
-                        onScaleStart: _handleScaleStart,
-                        onScaleUpdate: _handleScaleUpdate,
-                        onScaleEnd: _handleScaleEnd,
-                        behavior: HitTestBehavior.opaque,
-                        child: wrappedContent,
-                      );
-                    } else if (tool.grab || tool.mouse) {
-                      // Mouse/grab için swipe detect için GestureDetector
-                      return GestureDetector(
-                        onScaleStart: _handleScaleStart,
-                        onScaleUpdate: _handleScaleUpdate,
-                        onScaleEnd: _handleScaleEnd,
-                        behavior: HitTestBehavior.translucent,
-                        child: wrappedContent,
-                      );
-                    } else {
-                      // Diğer modlarda (magnifier dahil) GestureDetector yok
-                      return wrappedContent;
-                    }
-                  },
+                      ],
+                    ),
+                  ),
                 ),
               ),
+              // Drawing Listener OUTSIDE InteractiveViewer for stylus support
+              if (tool.pencil || tool.eraser || tool.highlighter || tool.shape)
+                Positioned.fill(
+                  child: Listener(
+                    onPointerDown: _handleDrawingPointerDown,
+                    onPointerMove: _handleDrawingPointerMove,
+                    onPointerUp: _handleDrawingPointerUp,
+                    onPointerCancel: _handleDrawingPointerCancel,
+                    behavior: HitTestBehavior.translucent,
+                  ),
+                ),
+              // Mouse/grab swipe detection OUTSIDE InteractiveViewer
+              if (tool.grab || tool.mouse)
+                Positioned.fill(
+                  child: GestureDetector(
+                    onScaleStart: _handleScaleStart,
+                    onScaleUpdate: _handleScaleUpdate,
+                    onScaleEnd: _handleScaleEnd,
+                    behavior: HitTestBehavior.translucent,
+                  ),
+                ),
               ValueListenableBuilder<ToolState>(
                 valueListenable: toolNotifier,
                 builder: (context, currentTool, child) {
@@ -1583,7 +1650,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                       child: ValueListenableBuilder<Rect?>(
                         valueListenable: _magnifierAreaNotifier,
                         builder: (context, magnifierRect, child) {
-                          if (magnifierRect == null || magnifierRect == Rect.zero) {
+                          if (magnifierRect == null ||
+                              magnifierRect == Rect.zero) {
                             return Container(color: Colors.transparent);
                           }
                           return CustomPaint(
@@ -1608,10 +1676,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     // Return main content with magnified overlay if needed
     return Stack(
       children: [
-        RepaintBoundary(
-          key: _repaintBoundaryKey,
-          child: mainContent,
-        ),
+        RepaintBoundary(key: _repaintBoundaryKey, child: mainContent),
         if (_showMagnifiedView && _magnifiedRect != null)
           MagnifiedContentOverlay(
             selectedArea: _magnifiedRect!,
@@ -1656,12 +1721,16 @@ class _SelectionPainter extends CustomPainter {
   }
 }
 
+// Legend kaldırıldı (debug amaçlıydı)
+
 class _SwipeableImageDialog extends StatefulWidget {
   final List<MapEntry<String, Uint8List>> imageList;
   final int initialIndex;
   final CropData cropData;
   final List<CropItem> cropsForPage;
   final PdfController pdfController;
+  final ValueNotifier<ToolState> toolNotifier;
+  final String? zipFilePath;
 
   const _SwipeableImageDialog({
     required this.imageList,
@@ -1669,6 +1738,8 @@ class _SwipeableImageDialog extends StatefulWidget {
     required this.cropData,
     required this.cropsForPage,
     required this.pdfController,
+    required this.toolNotifier,
+    this.zipFilePath,
   });
 
   @override
@@ -1679,6 +1750,22 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
   late PageController _pageController;
   late int _currentIndex;
   late List<CropItem> _sortedCrops; // Question number'a göre sıralanmış
+
+  // Drawing state per image index
+  final Map<int, List<Stroke>> _strokesPerIndex = {};
+  Stroke? _activeStroke;
+  final ValueNotifier<int> _repaintNotifier = ValueNotifier<int>(0);
+  final TransformationController _ivController = TransformationController();
+  final double _minZoom = AppConstants.minZoom;
+  final double _maxZoom = AppConstants.maxZoom;
+
+  // Palm rejection for dialog
+  bool _dialogStylusActive = false;
+  DateTime? _dialogLastStylusTime;
+  static const Duration _dialogPalmRejectionWindow = Duration(milliseconds: 500);
+
+  // Answer section expansion state
+  bool _isAnswerExpanded = false;
 
   @override
   void initState() {
@@ -1695,7 +1782,9 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
 
     // Başlangıç index'ini sıralanmış listede bul
     final initialImageFile = widget.imageList[widget.initialIndex].key;
-    _currentIndex = _sortedCrops.indexWhere((crop) => crop.imageFile == initialImageFile);
+    _currentIndex = _sortedCrops.indexWhere(
+      (crop) => crop.imageFile == initialImageFile,
+    );
     if (_currentIndex == -1) _currentIndex = 0;
 
     _pageController = PageController(initialPage: _currentIndex);
@@ -1704,7 +1793,703 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
   @override
   void dispose() {
     _pageController.dispose();
+    _repaintNotifier.dispose();
+    _ivController.dispose();
     super.dispose();
+  }
+
+  List<Stroke> get _strokes => _strokesPerIndex[_currentIndex] ??= [];
+
+  Offset _transformPoint(Offset point) {
+    return custom_matrix.MatrixUtils.transformPoint(_ivController.value, point);
+  }
+
+  void _startStroke(Offset position) {
+    final transformed = _transformPoint(position);
+    final tool = widget.toolNotifier.value;
+
+    if (tool.eraser) {
+      _activeStroke = Stroke(color: tool.color, width: tool.width, erase: true);
+      _activeStroke!.points.add(transformed);
+      _eraseAt(transformed, tool.width);
+      _repaintNotifier.value++;
+      return;
+    }
+
+    _activeStroke = Stroke(
+      color: tool.color,
+      width: tool.width,
+      erase: false,
+      isHighlighter: tool.highlighter,
+    );
+    _activeStroke!.points.add(transformed);
+    _strokes.add(_activeStroke!);
+    _repaintNotifier.value++;
+  }
+
+  void _updateStroke(Offset position) {
+    if (_activeStroke == null) return;
+    final transformed = _transformPoint(position);
+    final tool = widget.toolNotifier.value;
+
+    if (tool.eraser) {
+      _activeStroke!.points.add(transformed);
+      _eraseAt(transformed, tool.width);
+    } else {
+      // Add all points during active drawing for real-time smoothness
+      // No distance check - we want immediate feedback
+      _activeStroke!.points.add(transformed);
+    }
+
+    // Always repaint for smooth real-time feedback
+    _repaintNotifier.value++;
+  }
+
+  void _endStroke() {
+    // No simplification - keep all points for maximum quality
+    _activeStroke = null;
+    _repaintNotifier.value++;
+  }
+
+  void _eraseAt(Offset position, double eraserRadius) {
+    final List<Stroke> newStrokes = [];
+    for (final stroke in _strokes) {
+      if (stroke.erase) continue;
+      final List<Offset> remaining = [];
+      final List<List<Offset>> segments = [];
+      for (final point in stroke.points) {
+        final distance = (point - position).distance;
+        if (distance >= eraserRadius * 1.2) {
+          remaining.add(point);
+        } else {
+          if (remaining.isNotEmpty) {
+            segments.add(List.from(remaining));
+            remaining.clear();
+          }
+        }
+      }
+      if (remaining.isNotEmpty) segments.add(remaining);
+      for (final seg in segments) {
+        if (seg.length > 1) {
+          final ns = Stroke(
+            color: stroke.color,
+            width: stroke.width,
+            erase: false,
+          );
+          ns.points.addAll(seg);
+          newStrokes.add(ns);
+        }
+      }
+    }
+    _strokes.removeWhere((s) => !s.erase);
+    _strokes.addAll(newStrokes);
+  }
+
+
+  // New pointer handlers for better stylus support in dialog
+  void _onPointerDown(PointerDownEvent event) {
+    final tool = widget.toolNotifier.value;
+
+    print(
+      "🖊️ Dialog PointerDown: kind=${event.kind}, device=${event.device}, position=${event.localPosition}",
+    );
+
+    // Palm rejection: Check if this is a stylus or touch
+    final isStylus = event.kind == PointerDeviceKind.stylus;
+    final isTouch = event.kind == PointerDeviceKind.touch;
+
+    // If stylus is detected, mark it as active
+    if (isStylus) {
+      _dialogStylusActive = true;
+      _dialogLastStylusTime = DateTime.now();
+      print("✅ Dialog: Stylus detected - palm rejection active");
+    }
+
+    // Reject touch input if stylus was recently active (palm rejection)
+    if (isTouch && _dialogStylusActive && _dialogLastStylusTime != null) {
+      final timeSinceStylus = DateTime.now().difference(_dialogLastStylusTime!);
+      if (timeSinceStylus < _dialogPalmRejectionWindow) {
+        print("🚫 Dialog: Palm rejection - Ignoring touch input");
+        return;
+      }
+    }
+
+    if (tool.pencil || tool.highlighter || tool.eraser) {
+      _startStroke(event.localPosition);
+      print("✏️ Dialog stroke started with ${event.kind}");
+    }
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (_activeStroke == null) return;
+
+    // Palm rejection: Ignore touch events when stylus is active
+    final isTouch = event.kind == PointerDeviceKind.touch;
+    if (isTouch && _dialogStylusActive && _dialogLastStylusTime != null) {
+      final timeSinceStylus = DateTime.now().difference(_dialogLastStylusTime!);
+      if (timeSinceStylus < _dialogPalmRejectionWindow) {
+        return; // Silently ignore palm touches
+      }
+    }
+
+    final tool = widget.toolNotifier.value;
+
+    if (tool.pencil || tool.highlighter || tool.eraser) {
+      _updateStroke(event.localPosition);
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    final tool = widget.toolNotifier.value;
+
+    print("🖊️ Dialog PointerUp: kind=${event.kind}");
+
+    // Keep stylus active for palm rejection window after lifting
+    if (event.kind == PointerDeviceKind.stylus) {
+      print("📝 Dialog: Stylus lifted - palm rejection window active");
+    }
+
+    // Palm rejection: Ignore touch events when stylus is active
+    final isTouch = event.kind == PointerDeviceKind.touch;
+    if (isTouch && _dialogStylusActive && _dialogLastStylusTime != null) {
+      final timeSinceStylus = DateTime.now().difference(_dialogLastStylusTime!);
+      if (timeSinceStylus < _dialogPalmRejectionWindow) {
+        print("🚫 Dialog: Palm rejection - Ignoring touch up event");
+        return;
+      }
+    }
+
+    if (tool.pencil || tool.highlighter || tool.eraser) {
+      _endStroke();
+    }
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    print("❌ Dialog PointerCancel: kind=${event.kind}");
+
+    if (_activeStroke != null) {
+      _activeStroke = null;
+      _repaintNotifier.value++;
+    }
+  }
+
+  Future<Uint8List?> _loadDrawingImage(String drawingPath) async {
+    if (widget.zipFilePath == null) return null;
+
+    try {
+      final zipBytes = await File(widget.zipFilePath!).readAsBytes();
+      final archive = ZipDecoder().decodeBytes(zipBytes);
+
+      Uint8List? imageBytes;
+      for (final file in archive) {
+        if (file.isFile && file.name == drawingPath) {
+          imageBytes = file.content as Uint8List;
+          break;
+        }
+      }
+
+      if (imageBytes == null) return null;
+
+      // Get current crop to determine the height to crop from top
+      final crop = _sortedCrops[_currentIndex];
+      final cropHeight = crop.coordinates.height;
+
+      // Decode the image
+      final image = img.decodeImage(imageBytes);
+      if (image == null) return imageBytes;
+
+      // Crop from top: keep only the height of the question (solution area)
+      // The drawing file has: question at top, solution below
+      // We want to show only the part starting from cropHeight (skipping the question)
+      final croppedImage = img.copyCrop(
+        image,
+        x: 0,
+        y: cropHeight, // Start from the end of question
+        width: image.width,
+        height: image.height - cropHeight, // Remaining height (solution part)
+      );
+
+      // Encode back to PNG
+      return Uint8List.fromList(img.encodePng(croppedImage));
+    } catch (e) {
+      print('Error loading/cropping drawing: $e');
+    }
+    return null;
+  }
+
+  Widget _buildAnswerSection() {
+    final crop = _sortedCrops[_currentIndex];
+
+    // Check if there's any actual solution data
+    final hasAnswerChoice =
+        (crop.solutionMetadata?.answerChoice != null ||
+        crop.userSolution?.answerChoice != null);
+    final hasExplanation =
+        (crop.solutionMetadata?.explanation != null &&
+            crop.solutionMetadata!.explanation!.trim().isNotEmpty) ||
+        (crop.userSolution?.explanation != null &&
+            crop.userSolution!.explanation!.trim().isNotEmpty);
+    final hasDrawing =
+        (crop.solutionMetadata?.drawingFile != null &&
+            crop.solutionMetadata!.drawingFile!.trim().isNotEmpty) ||
+        (crop.userSolution?.drawingFile != null &&
+            crop.userSolution!.drawingFile!.trim().isNotEmpty);
+    final hasAiSolution =
+        crop.solutionMetadata?.aiSolution != null ||
+        crop.userSolution?.aiSolution != null;
+
+    final hasSolution =
+        hasAnswerChoice || hasExplanation || hasDrawing || hasAiSolution;
+
+    if (!hasSolution) {
+      return const SizedBox.shrink();
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header - Always visible
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isAnswerExpanded = !_isAnswerExpanded;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    color: Colors.green.shade600,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Çözüm',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  const SizedBox(width: 8),
+                  Icon(
+                    _isAnswerExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Expandable content
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Container(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Answer choice (large) - check both metadata and userSolution
+                  if (crop.solutionMetadata?.answerChoice != null ||
+                      crop.userSolution?.answerChoice != null) ...[
+                    Center(
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            crop.solutionMetadata?.answerChoice ??
+                                crop.userSolution?.answerChoice ??
+                                '',
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Solution type badge
+                  if (crop.solutionMetadata?.solutionType != null) ...[
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        Chip(
+                          label: Text(
+                            _getSolutionTypeText(
+                              crop.solutionMetadata!.solutionType!,
+                            ),
+                          ),
+                          avatar: Icon(
+                            _getSolutionTypeIcon(
+                              crop.solutionMetadata!.solutionType!,
+                            ),
+                            size: 16,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        ...crop.solutionMetadata!.solvedBy.map(
+                          (method) => Chip(
+                            label: Text(_getMethodText(method)),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Manual explanation or drawing - check both metadata and userSolution
+                  if ((crop.userSolution?.explanation != null &&
+                          crop.userSolution!.explanation!.trim().isNotEmpty) ||
+                      (crop.solutionMetadata?.explanation != null &&
+                          crop.solutionMetadata!.explanation!
+                              .trim()
+                              .isNotEmpty) ||
+                      (crop.userSolution?.drawingFile != null &&
+                          crop.userSolution!.drawingFile!.trim().isNotEmpty) ||
+                      (crop.solutionMetadata?.drawingFile != null &&
+                          crop.solutionMetadata!.drawingFile!
+                              .trim()
+                              .isNotEmpty)) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.person,
+                                size: 16,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Manuel Çözüm',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          // Show explanation if exists
+                          if ((crop.userSolution?.explanation != null &&
+                                  crop.userSolution!.explanation!
+                                      .trim()
+                                      .isNotEmpty) ||
+                              (crop.solutionMetadata?.explanation != null &&
+                                  crop.solutionMetadata!.explanation!
+                                      .trim()
+                                      .isNotEmpty)) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              crop.userSolution?.explanation?.trim() ??
+                                  crop.solutionMetadata?.explanation?.trim() ??
+                                  '',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ],
+                          // Show drawing file image if exists
+                          if ((crop.userSolution?.drawingFile != null &&
+                                  crop.userSolution!.drawingFile!
+                                      .trim()
+                                      .isNotEmpty) ||
+                              (crop.solutionMetadata?.drawingFile != null &&
+                                  crop.solutionMetadata!.drawingFile!
+                                      .trim()
+                                      .isNotEmpty)) ...[
+                            const SizedBox(height: 12),
+                            const Divider(height: 1),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.draw,
+                                  size: 14,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Çizim',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.secondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            FutureBuilder<Uint8List?>(
+                              future: _loadDrawingImage(
+                                crop.userSolution?.drawingFile ??
+                                    crop.solutionMetadata?.drawingFile ??
+                                    '',
+                              ),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(20),
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  );
+                                }
+
+                                if (snapshot.hasError ||
+                                    !snapshot.hasData ||
+                                    snapshot.data == null) {
+                                  return Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.error_outline,
+                                          size: 16,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Çizim yüklenemedi',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+
+                                return Container(
+                                  constraints: const BoxConstraints(
+                                    maxHeight: 300,
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.memory(
+                                      snapshot.data!,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // AI Solution
+                  if (crop.userSolution?.aiSolution != null ||
+                      crop.solutionMetadata?.aiSolution != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.purple.shade200,
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.psychology,
+                                size: 16,
+                                color: Colors.purple.shade700,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'AI Çözümü',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.purple.shade700,
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _getConfidenceColor(
+                                    (crop.userSolution?.aiSolution ??
+                                            crop.solutionMetadata!.aiSolution!)
+                                        .confidence,
+                                  ).withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '%${((crop.userSolution?.aiSolution ?? crop.solutionMetadata!.aiSolution!).confidence * 100).toInt()}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getConfidenceColor(
+                                      (crop.userSolution?.aiSolution ??
+                                              crop
+                                                  .solutionMetadata!
+                                                  .aiSolution!)
+                                          .confidence,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            (crop.userSolution?.aiSolution ??
+                                    crop.solutionMetadata!.aiSolution!)
+                                .reasoning,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          if ((crop.userSolution?.aiSolution ??
+                                      crop.solutionMetadata!.aiSolution!)
+                                  .steps
+                                  .isNotEmpty &&
+                              (crop.userSolution?.aiSolution ??
+                                      crop.solutionMetadata!.aiSolution!)
+                                  .steps
+                                  .first
+                                  .isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            const Divider(height: 1),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Adımlar:',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.purple.shade700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            ...(crop.userSolution?.aiSolution ??
+                                    crop.solutionMetadata!.aiSolution!)
+                                .steps
+                                .map(
+                                  (step) => Padding(
+                                    padding: const EdgeInsets.only(
+                                      bottom: 2,
+                                      left: 8,
+                                    ),
+                                    child: Text(
+                                      step,
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                  ),
+                                ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            crossFadeState: _isAnswerExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 300),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getSolutionTypeText(String type) {
+    switch (type) {
+      case 'manual':
+        return 'Manuel';
+      case 'ai':
+        return 'AI';
+      case 'mixed':
+        return 'Karma';
+      default:
+        return type;
+    }
+  }
+
+  IconData _getSolutionTypeIcon(String type) {
+    switch (type) {
+      case 'manual':
+        return Icons.edit;
+      case 'ai':
+        return Icons.psychology;
+      case 'mixed':
+        return Icons.merge_type;
+      default:
+        return Icons.help;
+    }
+  }
+
+  String _getMethodText(String method) {
+    switch (method) {
+      case 'manual':
+        return 'Manuel';
+      case 'ai':
+        return 'AI';
+      case 'drawing':
+        return 'Çizim';
+      default:
+        return method;
+    }
+  }
+
+  Color _getConfidenceColor(double confidence) {
+    if (confidence >= 0.8) return Colors.green;
+    if (confidence >= 0.6) return Colors.orange;
+    return Colors.red;
   }
 
   @override
@@ -1739,7 +2524,9 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
                     child: Text(
                       _sortedCrops[_currentIndex].questionNumber != null
                           ? 'Soru ${_sortedCrops[_currentIndex].questionNumber}'
-                          : _sortedCrops[_currentIndex].imageFile.split('/').last,
+                          : _sortedCrops[_currentIndex].imageFile
+                                .split('/')
+                                .last,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -1779,6 +2566,7 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
+                physics: const PageScrollPhysics(),
                 onPageChanged: (index) {
                   setState(() {
                     _currentIndex = index;
@@ -1792,19 +2580,56 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
                     (entry) => entry.key == crop.imageFile,
                   );
 
-                  return InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: Center(
-                      child: Image.memory(
-                        imageEntry.value,
-                        fit: BoxFit.contain,
+                  final strokes = _strokesPerIndex[index] ??= [];
+
+                  return Stack(
+                    children: [
+                      InteractiveViewer(
+                        transformationController: _ivController,
+                        minScale: _minZoom,
+                        maxScale: _maxZoom,
+                        panEnabled: true,
+                        scaleEnabled: true,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: Image.memory(
+                                imageEntry.value,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                            Positioned.fill(
+                              child: ValueListenableBuilder<int>(
+                                valueListenable: _repaintNotifier,
+                                builder: (_, __, ___) {
+                                  return CustomPaint(
+                                    painter: DrawingPainter(strokes: strokes),
+                                    size: Size.infinite,
+                                    child: Container(),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                      // Listener OUTSIDE InteractiveViewer for stylus support
+                      Positioned.fill(
+                        child: Listener(
+                          onPointerDown: _onPointerDown,
+                          onPointerMove: _onPointerMove,
+                          onPointerUp: _onPointerUp,
+                          onPointerCancel: _onPointerCancel,
+                          behavior: HitTestBehavior.translucent,
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),
             ),
+            // Answer Section (Expandable)
+            _buildAnswerSection(),
             // Alt navigasyon butonları (question number sırasına göre)
             if (_sortedCrops.length > 1)
               Container(

@@ -4,29 +4,41 @@ import 'dart:math' as math;
 
 class DrawingPainter extends CustomPainter {
   final List<Stroke> strokes;
+
   DrawingPainter({required this.strokes});
+
+  // Cache Paint objects to avoid recreating them
+  final Map<String, Paint> _paintCache = {};
+
+  Paint _getPaint(Stroke stroke) {
+    final key = '${stroke.color.r}_${stroke.color.g}_${stroke.color.b}_${stroke.width}_${stroke.isHighlighter}';
+
+    return _paintCache.putIfAbsent(key, () {
+      return Paint()
+        ..color = stroke.isHighlighter
+            ? stroke.color.withValues(alpha: 0.4)
+            : stroke.color
+        ..strokeWidth = stroke.isHighlighter
+            ? stroke.width * 2.5
+            : stroke.width
+        ..strokeCap = stroke.isHighlighter
+            ? StrokeCap.square
+            : StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke
+        ..isAntiAlias = true
+        ..blendMode = stroke.isHighlighter
+            ? BlendMode.multiply
+            : BlendMode.srcOver;
+    });
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     for (final stroke in strokes) {
       if (stroke.points.isEmpty) continue;
 
-      final paint = Paint()
-        ..color = stroke.isHighlighter
-            ? stroke.color.withOpacity(0.4) // Highlighter için yarı saydam
-            : stroke.color
-        ..strokeWidth = stroke.isHighlighter
-            ? stroke.width * 2.5 // Highlighter daha geniş
-            : stroke.width
-        ..strokeCap = stroke.isHighlighter
-            ? StrokeCap.square // Highlighter kare uçlu
-            : StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke
-        ..isAntiAlias = true
-        ..blendMode = stroke.isHighlighter
-            ? BlendMode.multiply // Highlighter için blend mode
-            : BlendMode.srcOver;
+      final paint = _getPaint(stroke);
 
       switch (stroke.type) {
         case StrokeType.freehand:
@@ -135,7 +147,9 @@ class DrawingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+  bool shouldRepaint(covariant DrawingPainter oldDelegate) {
+    // Always repaint during drawing for real-time feedback
+    // This is necessary for active stroke to be visible immediately
     return true;
   }
 }

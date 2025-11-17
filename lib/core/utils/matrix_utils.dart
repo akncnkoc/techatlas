@@ -5,7 +5,9 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 class MatrixUtils {
   MatrixUtils._();
 
-  /// Transforms a point using the inverse of a transformation matrix
+  /// Transforms a point from screen space to content space
+  /// When GestureDetector is OUTSIDE InteractiveViewer, we need inverse transform
+  /// When GestureDetector is INSIDE InteractiveViewer, we need direct transform
   static Offset transformPoint(Matrix4 transform, Offset point) {
     try {
       final Matrix4 invertedMatrix = Matrix4.inverted(transform);
@@ -16,6 +18,23 @@ class MatrixUtils {
     } catch (e) {
       // If matrix can't be inverted, return original point
       return point;
+    }
+  }
+
+  /// Transforms a point from screen space to content space (for gestures outside IV)
+  /// This is the correct transform when GestureDetector is outside InteractiveViewer
+  static Offset screenToContentSpace(Matrix4 transform, Offset screenPoint) {
+    try {
+      // When GestureDetector is outside InteractiveViewer:
+      // Screen coordinates need to be transformed to content space
+      // This requires the inverse of the transformation matrix
+      final Matrix4 invertedMatrix = Matrix4.inverted(transform);
+      final Vector3 transformed = invertedMatrix.transform3(
+        Vector3(screenPoint.dx, screenPoint.dy, 0),
+      );
+      return Offset(transformed.x, transformed.y);
+    } catch (e) {
+      return screenPoint;
     }
   }
 
