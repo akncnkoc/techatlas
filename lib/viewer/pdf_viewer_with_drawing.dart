@@ -14,6 +14,7 @@ import 'page_time_tracker.dart';
 import 'magnifier_overlay.dart';
 import 'magnified_content_overlay.dart';
 import '../models/crop_data.dart';
+import 'widgets/solution_detail_dialog.dart';
 import 'dart:math' show cos, sin;
 
 // Import new components and utilities
@@ -2017,6 +2018,375 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
     return null;
   }
 
+  Widget _buildAnswerSectionHorizontal() {
+    final crop = _sortedCrops[_currentIndex];
+
+    // Check if there's any actual solution data
+    final hasAnswerChoice =
+        (crop.solutionMetadata?.answerChoice != null ||
+        crop.userSolution?.answerChoice != null);
+    final hasExplanation =
+        (crop.solutionMetadata?.explanation != null &&
+            crop.solutionMetadata!.explanation!.trim().isNotEmpty) ||
+        (crop.userSolution?.explanation != null &&
+            crop.userSolution!.explanation!.trim().isNotEmpty);
+    final hasDrawing =
+        (crop.solutionMetadata?.drawingFile != null &&
+            crop.solutionMetadata!.drawingFile!.trim().isNotEmpty) ||
+        (crop.userSolution?.drawingFile != null &&
+            crop.userSolution!.drawingFile!.trim().isNotEmpty);
+    final hasAiSolution =
+        crop.solutionMetadata?.aiSolution != null ||
+        crop.userSolution?.aiSolution != null;
+
+    final hasSolution =
+        hasAnswerChoice || hasExplanation || hasDrawing || hasAiSolution;
+
+    if (!hasSolution) {
+      return const Center(
+        child: Text(
+          'Çözüm bulunamadı',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: Colors.green.shade600,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Çözüm',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Answer choice (large) - check both metadata and userSolution
+            if (crop.solutionMetadata?.answerChoice != null ||
+                crop.userSolution?.answerChoice != null) ...[
+              Center(
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      crop.solutionMetadata?.answerChoice ??
+                          crop.userSolution?.answerChoice ??
+                          '',
+                      style: TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Solution type badge
+            if (crop.solutionMetadata?.solutionType != null) ...[
+              Wrap(
+                spacing: 8,
+                children: [
+                  Chip(
+                    label: Text(
+                      _getSolutionTypeText(
+                        crop.solutionMetadata!.solutionType!,
+                      ),
+                    ),
+                    avatar: Icon(
+                      _getSolutionTypeIcon(
+                        crop.solutionMetadata!.solutionType!,
+                      ),
+                      size: 16,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  ...crop.solutionMetadata!.solvedBy.map(
+                    (method) => Chip(
+                      label: Text(_getMethodText(method)),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Manual explanation or drawing
+            if ((crop.userSolution?.explanation != null &&
+                    crop.userSolution!.explanation!.trim().isNotEmpty) ||
+                (crop.solutionMetadata?.explanation != null &&
+                    crop.solutionMetadata!.explanation!.trim().isNotEmpty) ||
+                (crop.userSolution?.drawingFile != null &&
+                    crop.userSolution!.drawingFile!.trim().isNotEmpty) ||
+                (crop.solutionMetadata?.drawingFile != null &&
+                    crop.solutionMetadata!.drawingFile!.trim().isNotEmpty)) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.edit_note,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Manuel Çözüm',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Show explanation if exists
+                    if ((crop.userSolution?.explanation != null &&
+                            crop.userSolution!.explanation!.trim().isNotEmpty) ||
+                        (crop.solutionMetadata?.explanation != null &&
+                            crop.solutionMetadata!.explanation!
+                                .trim()
+                                .isNotEmpty)) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        crop.userSolution?.explanation?.trim() ??
+                            crop.solutionMetadata?.explanation?.trim() ??
+                            '',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ],
+                    // Show drawing file image if exists
+                    if ((crop.userSolution?.drawingFile != null &&
+                            crop.userSolution!.drawingFile!.trim().isNotEmpty) ||
+                        (crop.solutionMetadata?.drawingFile != null &&
+                            crop.solutionMetadata!.drawingFile!
+                                .trim()
+                                .isNotEmpty)) ...[
+                      const SizedBox(height: 12),
+                      FutureBuilder<Uint8List?>(
+                        future: _loadDrawingImage(
+                          crop.userSolution?.drawingFile ??
+                              crop.solutionMetadata?.drawingFile ??
+                              '',
+                        ),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+
+                          if (snapshot.hasError || !snapshot.hasData) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.memory(
+                              snapshot.data!,
+                              fit: BoxFit.contain,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // AI Solution
+            if (crop.userSolution?.aiSolution != null ||
+                crop.solutionMetadata?.aiSolution != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.psychology,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.tertiary,
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'AI Çözümü',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getConfidenceColor(
+                              (crop.userSolution?.aiSolution ??
+                                      crop.solutionMetadata!.aiSolution!)
+                                  .confidence,
+                            ).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '%${((crop.userSolution?.aiSolution ?? crop.solutionMetadata!.aiSolution!).confidence * 100).toInt()}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: _getConfidenceColor(
+                                (crop.userSolution?.aiSolution ??
+                                        crop.solutionMetadata!.aiSolution!)
+                                    .confidence,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      (crop.userSolution?.aiSolution ??
+                              crop.solutionMetadata!.aiSolution!)
+                          .reasoning,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    if ((crop.userSolution?.aiSolution ??
+                                crop.solutionMetadata!.aiSolution!)
+                            .steps
+                            .isNotEmpty &&
+                        (crop.userSolution?.aiSolution ??
+                                crop.solutionMetadata!.aiSolution!)
+                            .steps
+                            .first
+                            .isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Adımlar:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      ...(crop.userSolution?.aiSolution ??
+                              crop.solutionMetadata!.aiSolution!)
+                          .steps
+                          .map(
+                            (step) => Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    '• ',
+                                    style: TextStyle(fontSize: 11),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      step,
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Detailed Solution Button
+            if (crop.userSolution?.hasAnimationData == true ||
+                crop.userSolution?.drawingDataFile != null) ...[
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    final zipDir = widget.zipFilePath != null
+                        ? File(widget.zipFilePath!).parent.path
+                        : '';
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => SolutionDetailDialog(
+                        crop: crop,
+                        baseDirectory: zipDir,
+                        zipFilePath: widget.zipFilePath,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.play_circle_outline, size: 18),
+                  label: const Text('Animasyonlu Çözümü İzle'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.tertiary,
+                    foregroundColor: Theme.of(context).colorScheme.onTertiary,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAnswerSection() {
     final crop = _sortedCrops[_currentIndex];
 
@@ -2434,6 +2804,41 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
                       ),
                     ),
                   ],
+
+                  // Detailed Solution Button
+                  if (crop.userSolution?.hasAnimationData == true ||
+                      crop.userSolution?.drawingDataFile != null) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          final zipDir = widget.zipFilePath != null
+                              ? File(widget.zipFilePath!).parent.path
+                              : '';
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => SolutionDetailDialog(
+                              crop: crop,
+                              baseDirectory: zipDir,
+                              zipFilePath: widget.zipFilePath,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.play_circle_outline, size: 20),
+                        label: const Text('Animasyonlu Çözümü İzle'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.tertiary,
+                          foregroundColor: Theme.of(context).colorScheme.onTertiary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -2562,74 +2967,94 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
                 ],
               ),
             ),
-            // PageView ile swipeable image gallery (question number sırasına göre)
+            // Horizontal Layout: Image on left, Solution on right
             Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                physics: const PageScrollPhysics(),
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
-                itemCount: _sortedCrops.length,
-                itemBuilder: (context, index) {
-                  // Sıralanmış crop listesinden resmi al
-                  final crop = _sortedCrops[index];
-                  final imageEntry = widget.imageList.firstWhere(
-                    (entry) => entry.key == crop.imageFile,
-                  );
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left Side - Image Gallery
+                  Expanded(
+                    flex: 2,
+                    child: PageView.builder(
+                      controller: _pageController,
+                      physics: const PageScrollPhysics(),
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentIndex = index;
+                        });
+                      },
+                      itemCount: _sortedCrops.length,
+                      itemBuilder: (context, index) {
+                        // Sıralanmış crop listesinden resmi al
+                        final crop = _sortedCrops[index];
+                        final imageEntry = widget.imageList.firstWhere(
+                          (entry) => entry.key == crop.imageFile,
+                        );
 
-                  final strokes = _strokesPerIndex[index] ??= [];
+                        final strokes = _strokesPerIndex[index] ??= [];
 
-                  return Stack(
-                    children: [
-                      InteractiveViewer(
-                        transformationController: _ivController,
-                        minScale: _minZoom,
-                        maxScale: _maxZoom,
-                        panEnabled: true,
-                        scaleEnabled: true,
-                        child: Stack(
+                        return Stack(
                           children: [
-                            Positioned.fill(
-                              child: Image.memory(
-                                imageEntry.value,
-                                fit: BoxFit.contain,
+                            InteractiveViewer(
+                              transformationController: _ivController,
+                              minScale: _minZoom,
+                              maxScale: _maxZoom,
+                              panEnabled: true,
+                              scaleEnabled: true,
+                              child: Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: Image.memory(
+                                      imageEntry.value,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                  Positioned.fill(
+                                    child: ValueListenableBuilder<int>(
+                                      valueListenable: _repaintNotifier,
+                                      builder: (_, __, ___) {
+                                        return CustomPaint(
+                                          painter: DrawingPainter(strokes: strokes),
+                                          size: Size.infinite,
+                                          child: Container(),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            // Listener OUTSIDE InteractiveViewer for stylus support
                             Positioned.fill(
-                              child: ValueListenableBuilder<int>(
-                                valueListenable: _repaintNotifier,
-                                builder: (_, __, ___) {
-                                  return CustomPaint(
-                                    painter: DrawingPainter(strokes: strokes),
-                                    size: Size.infinite,
-                                    child: Container(),
-                                  );
-                                },
+                              child: Listener(
+                                onPointerDown: _onPointerDown,
+                                onPointerMove: _onPointerMove,
+                                onPointerUp: _onPointerUp,
+                                onPointerCancel: _onPointerCancel,
+                                behavior: HitTestBehavior.translucent,
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                      // Listener OUTSIDE InteractiveViewer for stylus support
-                      Positioned.fill(
-                        child: Listener(
-                          onPointerDown: _onPointerDown,
-                          onPointerMove: _onPointerMove,
-                          onPointerUp: _onPointerUp,
-                          onPointerCancel: _onPointerCancel,
-                          behavior: HitTestBehavior.translucent,
-                        ),
-                      ),
-                    ],
-                  );
-                },
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Divider
+                  VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+
+                  // Right Side - Solution Section (Always visible)
+                  Expanded(
+                    flex: 1,
+                    child: _buildAnswerSectionHorizontal(),
+                  ),
+                ],
               ),
             ),
-            // Answer Section (Expandable)
-            _buildAnswerSection(),
             // Alt navigasyon butonları (question number sırasına göre)
             if (_sortedCrops.length > 1)
               Container(

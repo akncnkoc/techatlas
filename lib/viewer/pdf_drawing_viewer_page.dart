@@ -77,9 +77,9 @@ class _PdfDrawingViewerPageState extends State<PdfDrawingViewerPage> {
       _serverHealthy = isHealthy;
     });
 
-    if (!isHealthy) {
-      _showServerHealthWarning();
-    }
+    // if (!isHealthy) {
+    //   _showServerHealthWarning();
+    // }
   }
 
   void _showServerHealthWarning() {

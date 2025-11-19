@@ -1,36 +1,51 @@
 import 'package:flutter/material.dart';
 import '../../models/crop_data.dart';
+import 'animation_player_widget.dart';
 
-class SolutionDetailDialog extends StatelessWidget {
+class SolutionDetailDialog extends StatefulWidget {
   final CropItem crop;
+  final String baseDirectory;
+  final String? zipFilePath;
 
   const SolutionDetailDialog({
     super.key,
     required this.crop,
+    required this.baseDirectory,
+    this.zipFilePath,
   });
 
   @override
+  State<SolutionDetailDialog> createState() => _SolutionDetailDialogState();
+}
+
+class _SolutionDetailDialogState extends State<SolutionDetailDialog> {
+  final GlobalKey<AnimationPlayerWidgetState> _animationKey =
+      GlobalKey<AnimationPlayerWidgetState>();
+
+  @override
   Widget build(BuildContext context) {
-    final hasSolution = crop.solutionMetadata?.hasSolution ?? false;
-    final solutionType = crop.solutionMetadata?.solutionType;
+    final hasSolution = widget.crop.solutionMetadata?.hasSolution ?? false;
+    final solutionType = widget.crop.solutionMetadata?.solutionType;
 
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      insetPadding: const EdgeInsets.all(16),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+        width: MediaQuery.of(context).size.width,
+        height: MediaQuery.of(context).size.height * 0.9,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
                 ),
               ),
               child: Row(
@@ -38,14 +53,14 @@ class SolutionDetailDialog extends StatelessWidget {
                   Icon(
                     Icons.quiz,
                     color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    size: 28,
+                    size: 24,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Soru ${crop.questionNumber ?? "?"}',
+                      'Soru ${widget.crop.questionNumber ?? "?"} - Çözüm Animasyonu',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Theme.of(context).colorScheme.onPrimaryContainer,
                       ),
@@ -55,66 +70,196 @@ class SolutionDetailDialog extends StatelessWidget {
                     icon: Icon(
                       Icons.close,
                       color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      size: 20,
                     ),
                     onPressed: () => Navigator.pop(context),
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
             ),
 
-            // Content
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Solution Status
-                    _buildStatusCard(context, hasSolution, solutionType),
+            // Content - Horizontal Layout
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left Side - Animation Player
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      child: widget.crop.userSolution?.hasAnimationData == true &&
+                              widget.crop.userSolution?.drawingDataFile != null
+                          ? AnimationPlayerWidget(
+                              key: _animationKey,
+                              animationDataPath:
+                                  widget.crop.userSolution!.drawingDataFile!,
+                              baseDirectory: widget.baseDirectory,
+                              zipFilePath: widget.zipFilePath,
+                            )
+                          : const Center(
+                              child: Text('Animasyon verisi bulunamadı'),
+                            ),
+                    ),
+                  ),
 
-                    if (hasSolution) ...[
-                      const SizedBox(height: 16),
+                  // Divider
+                  VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
 
-                      // Answer Choice
-                      if (crop.solutionMetadata?.answerChoice != null)
-                        _buildAnswerCard(
-                          context,
-                          crop.solutionMetadata!.answerChoice!,
-                        ),
+                  // Right Side - Controls and Answer
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Answer Choice (large)
+                          if (widget.crop.solutionMetadata?.answerChoice != null ||
+                              widget.crop.userSolution?.answerChoice != null) ...[
+                            const Text(
+                              'CEVAP',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withValues(alpha: 0.3),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  widget.crop.solutionMetadata?.answerChoice ??
+                                      widget.crop.userSolution?.answerChoice ??
+                                      '?',
+                                  style: TextStyle(
+                                    fontSize: 56,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.onPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                          ],
 
-                      const SizedBox(height: 16),
+                          // Animation Controls
+                          const Text(
+                            'KONTROLLER',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
 
-                      // Manual Solution
-                      if (crop.userSolution?.explanation != null)
-                        _buildManualSolutionCard(
-                          context,
-                          crop.userSolution!,
-                        ),
+                          // Control Buttons
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // First step
+                              IconButton(
+                                icon: const Icon(Icons.first_page, size: 24),
+                                onPressed: () => _animationKey.currentState?.resetAnimation(),
+                                tooltip: 'İlk Adım',
+                                style: IconButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primaryContainer,
+                                  foregroundColor:
+                                      Theme.of(context).colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Previous step
+                              IconButton(
+                                icon: const Icon(Icons.chevron_left, size: 32),
+                                onPressed: () => _animationKey.currentState?.previousStep(),
+                                tooltip: 'Geri',
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Theme.of(context).colorScheme.primary,
+                                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Next step
+                              IconButton(
+                                icon: const Icon(Icons.chevron_right, size: 32),
+                                onPressed: () => _animationKey.currentState?.nextStep(),
+                                tooltip: 'İleri',
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Theme.of(context).colorScheme.primary,
+                                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Last step
+                              IconButton(
+                                icon: const Icon(Icons.last_page, size: 24),
+                                onPressed: () => _animationKey.currentState?.goToLastStep(),
+                                tooltip: 'Son Adım',
+                                style: IconButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primaryContainer,
+                                  foregroundColor:
+                                      Theme.of(context).colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                            ],
+                          ),
 
-                      // AI Solution
-                      if (crop.userSolution?.aiSolution != null ||
-                          crop.solutionMetadata?.aiSolution != null)
-                        _buildAiSolutionCard(
-                          context,
-                          crop.userSolution?.aiSolution ??
-                              crop.solutionMetadata!.aiSolution!,
-                        ),
+                          const SizedBox(height: 16),
 
-                      const SizedBox(height: 16),
-
-                      // Solved By
-                      _buildSolvedByCard(
-                        context,
-                        crop.solutionMetadata?.solvedBy ?? [],
+                          // Step indicator
+                          if (widget.crop.userSolution?.stepsCount != null &&
+                              widget.crop.userSolution!.stepsCount > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.secondaryContainer,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${widget.crop.userSolution!.stepsCount} Adım',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSecondaryContainer,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ],
-
-                    const SizedBox(height: 16),
-
-                    // Question Details
-                    _buildDetailsCard(context),
-                  ],
-                ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -133,16 +278,16 @@ class SolutionDetailDialog extends StatelessWidget {
     final statusText = hasSolution ? 'Çözüldü' : 'Çözülmedi';
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(width: 12),
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,11 +341,13 @@ class SolutionDetailDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 16),
-            const Text(
-              'Seçilen Cevap',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+            const Expanded(
+              child: Text(
+                'Seçilen Cevap',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -414,20 +561,20 @@ class SolutionDetailDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _buildDetailRow('Sayfa', '${crop.pageNumber}'),
-            _buildDetailRow('Sınıf', crop.className),
+            _buildDetailRow('Sayfa', '${widget.crop.pageNumber}'),
+            _buildDetailRow('Sınıf', widget.crop.className),
             _buildDetailRow(
               'Güven',
-              '%${(crop.confidence * 100).toInt()}',
+              '%${(widget.crop.confidence * 100).toInt()}',
             ),
-            if (crop.questionNumberDetails != null) ...[
+            if (widget.crop.questionNumberDetails != null) ...[
               _buildDetailRow(
                 'Soru No',
-                crop.questionNumberDetails!.text,
+                widget.crop.questionNumberDetails!.text,
               ),
               _buildDetailRow(
                 'OCR Güven',
-                '%${(crop.questionNumberDetails!.ocrConfidence * 100).toInt()}',
+                '%${(widget.crop.questionNumberDetails!.ocrConfidence * 100).toInt()}',
               ),
             ],
           ],
@@ -449,11 +596,16 @@ class SolutionDetailDialog extends StatelessWidget {
               color: Colors.grey,
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -504,5 +656,67 @@ class SolutionDetailDialog extends StatelessWidget {
     if (confidence >= 0.8) return Colors.green;
     if (confidence >= 0.6) return Colors.orange;
     return Colors.red;
+  }
+
+  Widget _buildAnimationCard(BuildContext context) {
+    if (widget.crop.userSolution?.drawingDataFile == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.animation,
+                  color: Theme.of(context).colorScheme.secondary,
+                  size: 20,
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Çözüm Animasyonu',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .secondaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${widget.crop.userSolution!.stepsCount} Adım',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSecondaryContainer,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            AnimationPlayerWidget(
+              animationDataPath: widget.crop.userSolution!.drawingDataFile!,
+              baseDirectory: widget.baseDirectory,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

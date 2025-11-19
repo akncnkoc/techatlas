@@ -39,7 +39,8 @@ class _FullNavigation extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _NavButton(
               icon: Icons.first_page,
@@ -145,7 +146,8 @@ class _NavButton extends StatelessWidget {
       tooltip: tooltip,
       onPressed: onPressed,
       iconSize: 24,
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(4),
+      constraints: const BoxConstraints(),
     );
   }
 }
