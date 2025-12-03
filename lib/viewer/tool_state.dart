@@ -67,4 +67,38 @@ class ToolState {
       width: width ?? this.width,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ToolState &&
+        other.eraser == eraser &&
+        other.pencil == pencil &&
+        other.highlighter == highlighter &&
+        other.grab == grab &&
+        other.mouse == mouse &&
+        other.shape == shape &&
+        other.selection == selection &&
+        other.magnifier == magnifier &&
+        other.selectedShape == selectedShape &&
+        other.color == color &&
+        other.width == width;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      eraser,
+      pencil,
+      highlighter,
+      grab,
+      mouse,
+      shape,
+      selection,
+      magnifier,
+      selectedShape,
+      color,
+      width,
+    );
+  }
 }

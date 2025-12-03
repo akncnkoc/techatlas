@@ -298,8 +298,24 @@ class DrawingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant DrawingPainter oldDelegate) {
-    // Always repaint during drawing for real-time feedback
-    // This is necessary for active stroke to be visible immediately
+    // Optimize: Only repaint when strokes actually change
+
+    // If stroke count changed, definitely repaint
+    if (strokes.length != oldDelegate.strokes.length) return true;
+
+    // If no strokes, no need to repaint
+    if (strokes.isEmpty) return false;
+
+    // Check if the last stroke (active drawing) has changed
+    final lastStroke = strokes.last;
+    final lastOldStroke = oldDelegate.strokes.last;
+
+    // If it's the same object reference, check point count
+    if (identical(lastStroke, lastOldStroke)) {
+      return lastStroke.points.length != lastOldStroke.points.length;
+    }
+
+    // Different stroke objects = need to repaint
     return true;
   }
 }

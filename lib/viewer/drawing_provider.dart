@@ -74,11 +74,18 @@ class DrawingProvider extends ChangeNotifier {
 
   // --- Tool State Methods ---
   void setTool(ToolState Function(ToolState) updater) {
-    _toolState = updater(_toolState);
-    notifyListeners();
+    final newState = updater(_toolState);
+    // Optimize: Only notify if state actually changed
+    if (newState != _toolState) {
+      _toolState = newState;
+      notifyListeners();
+    }
   }
 
   void setColor(Color color) {
+    // Optimize: Only update if color changed
+    if (_toolState.color == color) return;
+
     _toolState = _toolState.copyWith(
       color: color,
       pencil: !_toolState.shape && !_toolState.highlighter,
@@ -94,6 +101,9 @@ class DrawingProvider extends ChangeNotifier {
   }
 
   void setWidth(double width) {
+    // Optimize: Only update if width changed
+    if (_toolState.width == width) return;
+
     _toolState = _toolState.copyWith(width: width);
     notifyListeners();
   }
@@ -186,11 +196,16 @@ class DrawingProvider extends ChangeNotifier {
         final List<Offset> remainingPoints = [];
         final List<List<Offset>> segments = [];
 
+        // Optimize: Use squared distance to avoid expensive sqrt()
+        final eraserRadiusSq = eraserRadius * eraserRadius * 0.64; // 0.8^2 = 0.64
+
         for (int i = 0; i < shapePoints.length; i++) {
           final point = shapePoints[i];
-          final distance = (point - position).distance;
+          final dx = point.dx - position.dx;
+          final dy = point.dy - position.dy;
+          final distanceSq = dx * dx + dy * dy; // No sqrt() - much faster
 
-          if (distance >= eraserRadius * 0.8) { // Daha hassas silme - daha az buffer
+          if (distanceSq >= eraserRadiusSq) {
             remainingPoints.add(point);
           } else {
             if (remainingPoints.isNotEmpty) {
@@ -224,11 +239,16 @@ class DrawingProvider extends ChangeNotifier {
       final List<Offset> remainingPoints = [];
       final List<List<Offset>> segments = [];
 
+      // Optimize: Use squared distance to avoid expensive sqrt()
+      final eraserRadiusSq = eraserRadius * eraserRadius * 0.64; // 0.8^2 = 0.64
+
       for (int i = 0; i < stroke.points.length; i++) {
         final point = stroke.points[i];
-        final distance = (point - position).distance;
+        final dx = point.dx - position.dx;
+        final dy = point.dy - position.dy;
+        final distanceSq = dx * dx + dy * dy; // No sqrt() - much faster
 
-        if (distance >= eraserRadius * 0.8) { // Daha kolay silme
+        if (distanceSq >= eraserRadiusSq) {
           remainingPoints.add(point);
         } else {
           if (remainingPoints.isNotEmpty) {
@@ -288,7 +308,9 @@ class DrawingProvider extends ChangeNotifier {
       case StrokeType.circle:
         final center = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
         final radius = (p2 - p1).distance / 2;
-        final steps = (radius * 2).ceil();
+        // Optimize: Reduce points from radius*2 to max(16, radius/5)
+        // This gives 16-200 points instead of 100-2000 points
+        final steps = (radius / 5).ceil().clamp(16, 200);
 
         for (int i = 0; i < steps; i++) {
           final angle = (i / steps) * 2 * 3.14159;
@@ -306,7 +328,8 @@ class DrawingProvider extends ChangeNotifier {
         final center = rect.center;
         final radiusX = rect.width / 2;
         final radiusY = rect.height / 2;
-        final steps = ((radiusX + radiusY) * 2).ceil();
+        // Optimize: Reduce points similar to circle
+        final steps = ((radiusX + radiusY) / 5).ceil().clamp(16, 200);
 
         for (int i = 0; i < steps; i++) {
           final angle = (i / steps) * 2 * 3.14159;
@@ -396,7 +419,9 @@ class DrawingProvider extends ChangeNotifier {
 
   List<Offset> _interpolateLine(Offset start, Offset end) {
     final List<Offset> points = [];
-    final steps = ((end - start).distance / 2).ceil();
+    // Optimize: Reduce from distance/2 to distance/5
+    // This gives 5px spacing instead of 2px - still smooth but 60% fewer points
+    final steps = ((end - start).distance / 5).ceil().clamp(2, 100);
 
     for (int i = 0; i <= steps; i++) {
       final t = i / steps;

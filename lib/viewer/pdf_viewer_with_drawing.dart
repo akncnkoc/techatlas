@@ -46,6 +46,10 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   final Map<int, List<Stroke>> _pageStrokes = {};
   Stroke? _activeStroke;
   final ValueNotifier<int> _repaintNotifier = ValueNotifier<int>(0);
+
+  // Optimize: Batch repaint updates
+  int _pointsSinceLastRepaint = 0;
+  static const int _repaintBatchSize = 3; // Repaint every 3 points instead of every point
   final ValueNotifier<ToolState> toolNotifier = ValueNotifier<ToolState>(
     ToolState(
       mouse: true,
@@ -591,6 +595,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
     setState(() {
       _isDrawing = true;
+      _pointsSinceLastRepaint = 0; // Reset batch counter for new stroke
 
       final tool = toolNotifier.value;
 
@@ -631,21 +636,36 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     if (tool.eraser) {
       _activeStroke?.points.add(transformedPosition);
       _eraseAt(transformedPosition, tool.width * 15); // Daha büyük silgi alanı
-      _repaintNotifier.value++;
+
+      // Optimize: Batch repaint - update every 3 points instead of every point
+      _pointsSinceLastRepaint++;
+      if (_pointsSinceLastRepaint >= _repaintBatchSize) {
+        _repaintNotifier.value++;
+        _pointsSinceLastRepaint = 0;
+      }
     } else {
       // Add all points during active drawing for real-time smoothness
       // No distance check - we want immediate feedback
       _activeStroke?.points.add(transformedPosition);
-      _repaintNotifier.value++;
+
+      // Optimize: Batch repaint - update every 3 points instead of every point
+      _pointsSinceLastRepaint++;
+      if (_pointsSinceLastRepaint >= _repaintBatchSize) {
+        _repaintNotifier.value++;
+        _pointsSinceLastRepaint = 0;
+      }
     }
   }
 
   void _endStroke() {
+    // Reset batch counter and force final repaint
+    _pointsSinceLastRepaint = 0;
+
     setState(() {
       // No simplification - keep all points for maximum quality
       _activeStroke = null;
       _isDrawing = false;
-      _repaintNotifier.value++;
+      _repaintNotifier.value++; // Final repaint to ensure all points are drawn
     });
     _saveToHistory();
   }
@@ -661,11 +681,16 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
         final List<Offset> remainingPoints = [];
         final List<List<Offset>> segments = [];
 
+        // Optimize: Use squared distance to avoid expensive sqrt()
+        final eraserRadiusSq = eraserRadius * eraserRadius * 0.64; // 0.8^2 = 0.64
+
         for (int i = 0; i < shapePoints.length; i++) {
           final point = shapePoints[i];
-          final distance = (point - position).distance;
+          final dx = point.dx - position.dx;
+          final dy = point.dy - position.dy;
+          final distanceSq = dx * dx + dy * dy; // No sqrt() - much faster
 
-          if (distance >= eraserRadius * 0.8) { // Daha kolay silme
+          if (distanceSq >= eraserRadiusSq) {
             remainingPoints.add(point);
           } else {
             if (remainingPoints.isNotEmpty) {
@@ -696,11 +721,16 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       final List<Offset> remainingPoints = [];
       final List<List<Offset>> segments = [];
 
+      // Optimize: Use squared distance to avoid expensive sqrt()
+      final eraserRadiusSq = eraserRadius * eraserRadius * 0.64; // 0.8^2 = 0.64
+
       for (int i = 0; i < stroke.points.length; i++) {
         final point = stroke.points[i];
-        final distance = (point - position).distance;
+        final dx = point.dx - position.dx;
+        final dy = point.dy - position.dy;
+        final distanceSq = dx * dx + dy * dy; // No sqrt() - much faster
 
-        if (distance >= eraserRadius * 0.8) { // Daha kolay silme
+        if (distanceSq >= eraserRadiusSq) {
           remainingPoints.add(point);
         } else {
           if (remainingPoints.isNotEmpty) {
@@ -772,7 +802,9 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       case StrokeType.circle:
         final center = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
         final radius = (p2 - p1).distance / 2;
-        final steps = (radius * 2).ceil();
+        // Optimize: Reduce points from radius*2 to max(16, radius/5)
+        // This gives 16-200 points instead of 100-2000 points
+        final steps = (radius / 5).ceil().clamp(16, 200);
 
         for (int i = 0; i < steps; i++) {
           final angle = (i / steps) * 2 * math.pi;
@@ -790,7 +822,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
         final center = rect.center;
         final radiusX = rect.width / 2;
         final radiusY = rect.height / 2;
-        final steps = ((radiusX + radiusY) * 2).ceil();
+        // Optimize: Reduce points similar to circle
+        final steps = ((radiusX + radiusY) / 5).ceil().clamp(16, 200);
 
         for (int i = 0; i < steps; i++) {
           final angle = (i / steps) * 2 * math.pi;
@@ -882,7 +915,9 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
   List<Offset> _interpolateLine(Offset start, Offset end) {
     final List<Offset> points = [];
-    final steps = ((end - start).distance / 2).ceil();
+    // Optimize: Reduce from distance/2 to distance/5
+    // This gives 5px spacing instead of 2px - still smooth but 60% fewer points
+    final steps = ((end - start).distance / 5).ceil().clamp(2, 100);
 
     for (int i = 0; i <= steps; i++) {
       final t = i / steps;
@@ -2041,13 +2076,20 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
 
   void _eraseAt(Offset position, double eraserRadius) {
     final List<Stroke> newStrokes = [];
+
+    // Optimize: Use squared distance to avoid expensive sqrt()
+    final eraserRadiusSq = eraserRadius * eraserRadius * 1.44; // 1.2^2 = 1.44
+
     for (final stroke in _strokes) {
       if (stroke.erase) continue;
       final List<Offset> remaining = [];
       final List<List<Offset>> segments = [];
       for (final point in stroke.points) {
-        final distance = (point - position).distance;
-        if (distance >= eraserRadius * 1.2) {
+        final dx = point.dx - position.dx;
+        final dy = point.dy - position.dy;
+        final distanceSq = dx * dx + dy * dy; // No sqrt() - much faster
+
+        if (distanceSq >= eraserRadiusSq) {
           remaining.add(point);
         } else {
           if (remaining.isNotEmpty) {
