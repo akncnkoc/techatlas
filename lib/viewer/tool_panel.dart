@@ -241,15 +241,38 @@ class _ToolPanelState extends State<ToolPanel> {
       children: [
         // Page Navigation
         PageNavigationButtons(controller: widget.controller, isCompact: false),
-        const Divider(height: 24),
+        const Divider(height: 16),
 
-        // Undo/Redo
-        const Text(
-          'Geri Al / İleri Al',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          textAlign: TextAlign.center,
+        // Undo/Redo section header with gradient
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                scheme.primaryContainer.withValues(alpha: 0.3),
+                scheme.primaryContainer.withValues(alpha: 0.15),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.history_rounded, size: 14, color: scheme.primary),
+              const SizedBox(width: 6),
+              Text(
+                'Geri Al / İleri Al',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: scheme.primary,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
         // Use ValueListenableBuilder to listen to canUndo/canRedo changes
         widget.canUndoNotifier != null && widget.canRedoNotifier != null
             ? ValueListenableBuilder<bool>(
@@ -282,17 +305,41 @@ class _ToolPanelState extends State<ToolPanel> {
                 },
                 isCompact: false,
               ),
-        const Divider(height: 24),
+        const Divider(height: 16),
 
-        const Text(
-          'Zoom',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          textAlign: TextAlign.center,
+        // Zoom section header with gradient
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                scheme.secondaryContainer.withValues(alpha: 0.3),
+                scheme.secondaryContainer.withValues(alpha: 0.15),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.zoom_in_rounded, size: 14, color: scheme.secondary),
+              const SizedBox(width: 6),
+              Text(
+                'Zoom',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: scheme.secondary,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 6,
+          runSpacing: 6,
           alignment: WrapAlignment.center,
           children: [
             ToolButton(
@@ -300,36 +347,63 @@ class _ToolPanelState extends State<ToolPanel> {
               tooltip: 'Yakınlaştır',
               isSelected: false,
               onPressed: () => provider.zoomIn(),
-              size: 42,
+              size: 36,
             ),
             ToolButton(
               icon: Icons.zoom_out,
               tooltip: 'Uzaklaştır',
               isSelected: false,
               onPressed: () => provider.zoomOut(),
-              size: 42,
+              size: 36,
             ),
             ToolButton(
               icon: Icons.fit_screen,
               tooltip: 'Zoom Sıfırla',
               isSelected: false,
               onPressed: () => provider.resetZoom(),
-              size: 42,
+              size: 36,
             ),
           ],
         ),
-        const Divider(height: 24),
+        const Divider(height: 16),
 
-        // Rotation controls
-        const Text(
-          'Döndürme',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          textAlign: TextAlign.center,
+        // Rotation section header with gradient
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                scheme.tertiaryContainer.withValues(alpha: 0.3),
+                scheme.tertiaryContainer.withValues(alpha: 0.15),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.rotate_90_degrees_cw_rounded,
+                size: 14,
+                color: scheme.tertiary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Döndürme',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: scheme.tertiary,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 6,
+          runSpacing: 6,
           alignment: WrapAlignment.center,
           children: [
             ToolButton(
@@ -355,18 +429,41 @@ class _ToolPanelState extends State<ToolPanel> {
             ),
           ],
         ),
-        const Divider(height: 24),
+        const Divider(height: 16),
 
-        // Drawing Tools
-        const Text(
-          'Araçlar',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          textAlign: TextAlign.center,
+        // Tools section header with gradient
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                scheme.primaryContainer.withValues(alpha: 0.3),
+                scheme.primaryContainer.withValues(alpha: 0.15),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.construction_rounded, size: 14, color: scheme.primary),
+              const SizedBox(width: 6),
+              Text(
+                'Araçlar',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: scheme.primary,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 6,
+          runSpacing: 6,
           alignment: WrapAlignment.center,
           children: [
             ToolButton(
@@ -524,24 +621,45 @@ class _ToolPanelState extends State<ToolPanel> {
               // Also update toolNotifier if provided
               if (widget.toolNotifier != null) {
                 print('🔷 toolNotifier güncelleniyor: $shape');
-                widget.toolNotifier!.value = widget.toolNotifier!.value.copyWith(
-                  selectedShape: shape,
-                  shape: true,
-                );
+                widget.toolNotifier!.value = widget.toolNotifier!.value
+                    .copyWith(selectedShape: shape, shape: true);
               }
             },
           ),
         ],
 
-        const Divider(height: 24),
+        const Divider(height: 16),
 
-        // Color Picker
-        const Text(
-          'Renk',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          textAlign: TextAlign.center,
+        // Color section header with gradient
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                scheme.secondaryContainer.withValues(alpha: 0.3),
+                scheme.secondaryContainer.withValues(alpha: 0.15),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.palette_rounded, size: 14, color: scheme.secondary),
+              const SizedBox(width: 6),
+              Text(
+                'Renk',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: scheme.secondary,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
         Center(
           child: ColorPickerButton(
             currentColor: tool.color,
@@ -552,16 +670,46 @@ class _ToolPanelState extends State<ToolPanel> {
               // Also update toolNotifier if provided
               if (widget.toolNotifier != null) {
                 print('🎨 toolNotifier güncelleniyor: $color');
-                widget.toolNotifier!.value = widget.toolNotifier!.value.copyWith(
-                  color: color,
-                );
+                widget.toolNotifier!.value = widget.toolNotifier!.value
+                    .copyWith(color: color);
               }
             },
             size: 50,
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+
+        // Width section header with gradient
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                scheme.tertiaryContainer.withValues(alpha: 0.3),
+                scheme.tertiaryContainer.withValues(alpha: 0.15),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.line_weight_rounded, size: 14, color: scheme.tertiary),
+              const SizedBox(width: 6),
+              Text(
+                'Kalınlık',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: scheme.tertiary,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
 
         // Width Slider
         WidthSlider(
@@ -620,8 +768,8 @@ class _ToolPanelState extends State<ToolPanel> {
               top: _position.dy,
               child: Material(
                 elevation: _isDragging ? 12 : 8,
-                borderRadius: BorderRadius.circular(16),
-                color: scheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                color: scheme.surface.withValues(alpha: 0.92),
                 shadowColor: Colors.black.withValues(alpha: 0.3),
                 child: Container(
                   width: _isCollapsed ? 60 : _panelWidth,
@@ -635,7 +783,7 @@ class _ToolPanelState extends State<ToolPanel> {
                           maxWidth: MediaQuery.of(context).size.width * 0.4,
                         ),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: _isDragging
                           ? scheme.primary.withValues(alpha: 0.5)
@@ -644,7 +792,7 @@ class _ToolPanelState extends State<ToolPanel> {
                     ),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     child: Column(
                       mainAxisSize: _isCollapsed
                           ? MainAxisSize.min

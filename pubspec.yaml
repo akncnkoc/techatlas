@@ -36,5 +36,8 @@ dev_dependencies:
   flutter_lints: "^5.0.0"
 flutter:
   uses-material-design: true
+  assets:
+    - service_account.json
+
 inno_build:
   app_id: "b7005cc2-f2d5-4b12-9708-1588a796a837"

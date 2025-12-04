@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis_auth/googleapis_auth.dart' as auth;
 import 'package:googleapis_auth/auth_io.dart' as auth_io;
@@ -23,17 +24,10 @@ class GoogleDriveAuth {
     try {
       debugPrint('🔐 Initializing Google Drive service account auth...');
 
-      // Read service account credentials from file
-      final credentialsFile = File('service_account.json');
-
-      if (!await credentialsFile.exists()) {
-        throw Exception(
-          'Service account file not found at: ${credentialsFile.path}\n'
-          'Please create a service account JSON file and place it at the project root.',
-        );
-      }
-
-      final credentialsJson = await credentialsFile.readAsString();
+      // Read service account credentials from assets
+      final credentialsJson = await rootBundle.loadString(
+        'service_account.json',
+      );
       final credentials = auth.ServiceAccountCredentials.fromJson(
         json.decode(credentialsJson),
       );

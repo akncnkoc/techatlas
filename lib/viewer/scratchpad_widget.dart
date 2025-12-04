@@ -46,8 +46,8 @@ class _ScratchpadWidgetState extends State<ScratchpadWidget> {
             ignoring: false,
             child: Material(
               elevation: 8,
-              borderRadius: BorderRadius.circular(16),
-              color: scheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              color: scheme.surface.withValues(alpha: 0.95),
               child: SizedBox(
                 width: width,
                 height: height,
@@ -70,51 +70,74 @@ class _ScratchpadWidgetState extends State<ScratchpadWidget> {
                         });
                       },
                       child: Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: scheme.surfaceContainerHighest,
+                          gradient: LinearGradient(
+                            colors: [
+                              scheme.surfaceContainerHighest.withValues(
+                                alpha: 0.8,
+                              ),
+                              scheme.surfaceContainerHighest.withValues(
+                                alpha: 0.6,
+                              ),
+                            ],
+                          ),
                           borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
+                            topLeft: Radius.circular(12),
+                            topRight: Radius.circular(12),
                           ),
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.edit_note,
-                              color: scheme.primary,
-                              size: 20,
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    scheme.secondary.withValues(alpha: 0.15),
+                                    scheme.secondary.withValues(alpha: 0.08),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Icon(
+                                Icons.edit_note_rounded,
+                                color: scheme.secondary,
+                                size: 18,
+                              ),
                             ),
                             const SizedBox(width: 8),
-                            const Text(
+                            Text(
                               'Not Defteri',
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
+                                letterSpacing: -0.3,
                               ),
                             ),
                             const Spacer(),
                             IconButton(
-                              icon: const Icon(Icons.expand, size: 20),
+                              icon: const Icon(Icons.expand_rounded, size: 18),
                               onPressed: () => _expandCanvas(
                                 MediaQuery.of(context).size.width,
                                 MediaQuery.of(context).size.height,
                               ),
                               tooltip: 'Genişlet',
-                              padding: EdgeInsets.zero,
+                              padding: const EdgeInsets.all(6),
                               constraints: const BoxConstraints(),
                             ),
-                            const SizedBox(width: 8),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 20),
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                              ),
                               onPressed: _clearCanvas,
                               tooltip: 'Temizle',
-                              padding: EdgeInsets.zero,
+                              padding: const EdgeInsets.all(6),
                               constraints: const BoxConstraints(),
                             ),
-                            const SizedBox(width: 8),
                             IconButton(
-                              icon: const Icon(Icons.close, size: 20),
+                              icon: const Icon(Icons.close_rounded, size: 18),
                               onPressed: () {
                                 if (widget.onClose != null) {
                                   widget.onClose!();
@@ -123,7 +146,7 @@ class _ScratchpadWidgetState extends State<ScratchpadWidget> {
                                 }
                               },
                               tooltip: 'Kapat',
-                              padding: EdgeInsets.zero,
+                              padding: const EdgeInsets.all(6),
                               constraints: const BoxConstraints(),
                             ),
                           ],
@@ -134,13 +157,15 @@ class _ScratchpadWidgetState extends State<ScratchpadWidget> {
                     // Color & Width Controls
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                        horizontal: 10,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: scheme.surface,
+                        color: scheme.surface.withValues(alpha: 0.8),
                         border: Border(
-                          bottom: BorderSide(color: scheme.outlineVariant),
+                          bottom: BorderSide(
+                            color: scheme.outlineVariant.withValues(alpha: 0.3),
+                          ),
                         ),
                       ),
                       child: Row(

@@ -33,17 +33,30 @@ class ThumbnailPanel extends StatelessWidget {
             }
           },
           child: Container(
-            height: 40,
+            height: 32,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.98),
+                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                ],
+              ),
               border: Border(
                 bottom: BorderSide(
-                  color: Theme.of(context).dividerColor,
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
                   width: 1,
                 ),
               ),
             ),
-            child: Center(child: Icon(Icons.swipe_down)),
+            child: Center(
+              child: Icon(
+                Icons.swipe_down_rounded,
+                size: 20,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
           ),
         ),
         // Thumbnail List

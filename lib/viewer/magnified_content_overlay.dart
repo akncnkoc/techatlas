@@ -20,7 +20,8 @@ class MagnifiedContentOverlay extends StatefulWidget {
   });
 
   @override
-  State<MagnifiedContentOverlay> createState() => _MagnifiedContentOverlayState();
+  State<MagnifiedContentOverlay> createState() =>
+      _MagnifiedContentOverlayState();
 }
 
 class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
@@ -57,19 +58,21 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
     _height = 300.0;
     _position = Offset.zero;
 
-    _toolNotifier = ValueNotifier(ToolState(
-      eraser: false,
-      pencil: true,
-      highlighter: false,
-      grab: false,
-      mouse: false,
-      shape: false,
-      selection: false,
-      magnifier: false,
-      selectedShape: ShapeType.line,
-      color: Colors.red,
-      width: 3.0,
-    ));
+    _toolNotifier = ValueNotifier(
+      ToolState(
+        eraser: false,
+        pencil: true,
+        highlighter: false,
+        grab: false,
+        mouse: false,
+        shape: false,
+        selection: false,
+        magnifier: false,
+        selectedShape: ShapeType.line,
+        color: Colors.red,
+        width: 3.0,
+      ),
+    );
     _captureContent();
   }
 
@@ -82,10 +85,14 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
       final screenSize = MediaQuery.of(context).size;
       // Calculate initial values without setState since didChangeDependencies
       // is called during build phase
-      _width = (widget.selectedArea.width * widget.magnification)
-          .clamp(400.0, screenSize.width * 0.8);
-      _height = (widget.selectedArea.height * widget.magnification)
-          .clamp(300.0, screenSize.height * 0.8);
+      _width = (widget.selectedArea.width * widget.magnification).clamp(
+        400.0,
+        screenSize.width * 0.8,
+      );
+      _height = (widget.selectedArea.height * widget.magnification).clamp(
+        300.0,
+        screenSize.height * 0.8,
+      );
       _position = Offset(
         (screenSize.width - _width) / 2,
         (screenSize.height - _height) / 2,
@@ -112,9 +119,13 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
       final renderObject = widget.contentKey.currentContext?.findRenderObject();
 
       print('🔍 Capturing content...');
-      print('   Context: ${widget.contentKey.currentContext != null ? "✓" : "✗"}');
+      print(
+        '   Context: ${widget.contentKey.currentContext != null ? "✓" : "✗"}',
+      );
       print('   RenderObject: ${renderObject != null ? "✓" : "✗"}');
-      print('   Is RepaintBoundary: ${renderObject is RenderRepaintBoundary ? "✓" : "✗"}');
+      print(
+        '   Is RepaintBoundary: ${renderObject is RenderRepaintBoundary ? "✓" : "✗"}',
+      );
 
       if (renderObject is! RenderRepaintBoundary) {
         print('❌ RenderObject is not a RepaintBoundary!');
@@ -145,7 +156,8 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
 
       // 🎨 2. AŞAMA: YÜKSEK KALİTE YÜKLEME (ARKA PLANDA)
       // Kullanıcı zaten içeriği görüyor, şimdi yüksek kaliteyi yükle
-      final highPixelRatio = (devicePixelRatio * widget.magnification * 1.5).clamp(3.0, 6.0);
+      final highPixelRatio = (devicePixelRatio * widget.magnification * 1.5)
+          .clamp(3.0, 6.0);
       print('🎨 Phase 2: High quality capture at ${highPixelRatio}x...');
 
       final highImage = await boundary.toImage(pixelRatio: highPixelRatio);
@@ -203,8 +215,14 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
 
       switch (_resizeDirection) {
         case 'bottom-right':
-          _width = (_width + details.delta.dx).clamp(minWidth, size.width - _position.dx);
-          _height = (_height + details.delta.dy).clamp(minHeight, size.height - _position.dy);
+          _width = (_width + details.delta.dx).clamp(
+            minWidth,
+            size.width - _position.dx,
+          );
+          _height = (_height + details.delta.dy).clamp(
+            minHeight,
+            size.height - _position.dy,
+          );
           break;
         case 'bottom-left':
           final newWidth = _width - details.delta.dx;
@@ -212,7 +230,10 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
             _width = newWidth;
             _position = Offset(_position.dx + details.delta.dx, _position.dy);
           }
-          _height = (_height + details.delta.dy).clamp(minHeight, size.height - _position.dy);
+          _height = (_height + details.delta.dy).clamp(
+            minHeight,
+            size.height - _position.dy,
+          );
           break;
         case 'top-right':
           final newHeight = _height - details.delta.dy;
@@ -220,7 +241,10 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
             _height = newHeight;
             _position = Offset(_position.dx, _position.dy + details.delta.dy);
           }
-          _width = (_width + details.delta.dx).clamp(minWidth, size.width - _position.dx);
+          _width = (_width + details.delta.dx).clamp(
+            minWidth,
+            size.width - _position.dx,
+          );
           break;
         case 'top-left':
           final newWidth = _width - details.delta.dx;
@@ -297,8 +321,26 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
                 width: 10,
                 height: 10,
                 decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(2),
+                  gradient: RadialGradient(
+                    colors: [
+                      Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.7),
+                      Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.5),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.5),
+                      blurRadius: 4,
+                      spreadRadius: 1,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -327,15 +369,13 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? Colors.blue : Colors.white.withValues(alpha: 0.3),
+              color: isSelected
+                  ? Colors.blue
+                  : Colors.white.withValues(alpha: 0.3),
               width: 1.5,
             ),
           ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 20,
-          ),
+          child: Icon(icon, color: Colors.white, size: 20),
         ),
       ),
     );
@@ -355,37 +395,42 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [
-                    Colors.red,
-                    Colors.blue,
-                    Colors.green,
-                    Colors.yellow,
-                    Colors.orange,
-                    Colors.purple,
-                    Colors.pink,
-                    Colors.black,
-                    Colors.white,
-                    Colors.brown,
-                  ].map((color) {
-                    return InkWell(
-                      onTap: () {
-                        _toolNotifier.value = _toolNotifier.value.copyWith(color: color);
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: color == currentColor ? Colors.blue : Colors.grey,
-                            width: color == currentColor ? 3 : 1,
+                  children:
+                      [
+                        Colors.red,
+                        Colors.blue,
+                        Colors.green,
+                        Colors.yellow,
+                        Colors.orange,
+                        Colors.purple,
+                        Colors.pink,
+                        Colors.black,
+                        Colors.white,
+                        Colors.brown,
+                      ].map((color) {
+                        return InkWell(
+                          onTap: () {
+                            _toolNotifier.value = _toolNotifier.value.copyWith(
+                              color: color,
+                            );
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: color == currentColor
+                                    ? Colors.blue
+                                    : Colors.grey,
+                                width: color == currentColor ? 3 : 1,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      }).toList(),
                 ),
               ),
               actions: [
@@ -471,21 +516,37 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
               height: _height,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.surface,
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 border: Border.all(
-                  color: Colors.blue,
                   width: 3,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.3),
                     blurRadius: 20,
-                    spreadRadius: 5,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 4),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(14),
                 child: Stack(
                   children: [
                     // Magnified content with drawing capability
@@ -526,10 +587,7 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
                       const Center(
                         child: Text(
                           'İçerik yakalanamadı',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: Colors.red, fontSize: 16),
                         ),
                       ),
 
@@ -539,29 +597,52 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
                       left: 0,
                       right: 0,
                       child: MouseRegion(
-                        cursor: _isFullscreen ? SystemMouseCursors.basic : SystemMouseCursors.move,
+                        cursor: _isFullscreen
+                            ? SystemMouseCursors.basic
+                            : SystemMouseCursors.move,
                         child: GestureDetector(
-                          onPanStart: _isFullscreen ? null : (_) {
-                            setState(() {
-                              _isDragging = true;
-                            });
-                          },
+                          onPanStart: _isFullscreen
+                              ? null
+                              : (_) {
+                                  setState(() {
+                                    _isDragging = true;
+                                  });
+                                },
                           onPanUpdate: _isFullscreen ? null : _onPanUpdate,
-                          onPanEnd: _isFullscreen ? null : (_) {
-                            setState(() {
-                              _isDragging = false;
-                            });
-                          },
+                          onPanEnd: _isFullscreen
+                              ? null
+                              : (_) {
+                                  setState(() {
+                                    _isDragging = false;
+                                  });
+                                },
                           child: Container(
                             height: 40,
                             color: Colors.transparent,
                             child: Center(
                               child: Container(
                                 margin: const EdgeInsets.only(top: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.3),
-                                  borderRadius: BorderRadius.circular(12),
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.black.withValues(alpha: 0.5),
+                                      Colors.black.withValues(alpha: 0.3),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -602,11 +683,25 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.7),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.8),
+                                    Colors.black.withValues(alpha: 0.6),
+                                  ],
+                                ),
                                 shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.4),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
                               child: Icon(
-                                _isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                                _isFullscreen
+                                    ? Icons.fullscreen_exit
+                                    : Icons.fullscreen,
                                 color: Colors.white,
                                 size: 24,
                               ),
@@ -628,8 +723,20 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.7),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.red.shade600,
+                                    Colors.red.shade800,
+                                  ],
+                                ),
                                 shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.red.withValues(alpha: 0.5),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
                               child: const Icon(
                                 Icons.close,
@@ -651,8 +758,20 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(12),
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.85),
+                                  Colors.black.withValues(alpha: 0.7),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.4),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
                             ),
                             child: ValueListenableBuilder<ToolState>(
                               valueListenable: _toolNotifier,
@@ -662,9 +781,13 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
                                   children: [
                                     // Drawing mode toggle
                                     _buildToolButton(
-                                      icon: _isDrawingMode ? Icons.touch_app : Icons.edit_off,
+                                      icon: _isDrawingMode
+                                          ? Icons.touch_app
+                                          : Icons.edit_off,
                                       isSelected: _isDrawingMode,
-                                      tooltip: _isDrawingMode ? 'Çizim Kapalı' : 'Çizim Açık',
+                                      tooltip: _isDrawingMode
+                                          ? 'Çizim Kapalı'
+                                          : 'Çizim Açık',
                                       onTap: () {
                                         setState(() {
                                           _isDrawingMode = !_isDrawingMode;
@@ -724,7 +847,8 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
                                         isSelected: false,
                                         tooltip: 'Geri Al',
                                         onTap: () {
-                                          final state = _drawingKey.currentState;
+                                          final state =
+                                              _drawingKey.currentState;
                                           if (state != null) {
                                             state.undo();
                                             print('↩️ Geri alındı');
@@ -740,7 +864,8 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
                                         isSelected: false,
                                         tooltip: 'Temizle',
                                         onTap: () {
-                                          final state = _drawingKey.currentState;
+                                          final state =
+                                              _drawingKey.currentState;
                                           if (state != null) {
                                             state.clearDrawing();
                                             print('🧹 Çizimler temizlendi');
@@ -823,12 +948,7 @@ class _MagnifiedImagePainter extends CustomPainter {
     final destRect = Rect.fromLTWH(0, 0, size.width, size.height);
 
     // Draw the magnified portion
-    canvas.drawImageRect(
-      image,
-      clampedSourceRect,
-      destRect,
-      paint,
-    );
+    canvas.drawImageRect(image, clampedSourceRect, destRect, paint);
   }
 
   @override
@@ -843,9 +963,7 @@ class _MagnifiedImagePainter extends CustomPainter {
 class MagnifierSelectionPainter extends CustomPainter {
   final Rect selectedArea;
 
-  MagnifierSelectionPainter({
-    required this.selectedArea,
-  });
+  MagnifierSelectionPainter({required this.selectedArea});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -858,8 +976,7 @@ class MagnifierSelectionPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), overlayPaint);
 
     // Clear the selected area (cut out the rectangle)
-    final clearPaint = Paint()
-      ..blendMode = BlendMode.clear;
+    final clearPaint = Paint()..blendMode = BlendMode.clear;
     canvas.drawRect(selectedArea, clearPaint);
 
     // Draw border around selected area

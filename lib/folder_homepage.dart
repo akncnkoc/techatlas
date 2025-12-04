@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,7 +16,6 @@ import './google_drive/models.dart' as gdrive;
 import './models/crop_data.dart';
 import 'login_page.dart';
 import 'viewer/pdf_drawing_viewer_page.dart';
-import 'widgets/dropbox_pdf_thumbnail.dart';
 
 class FolderHomePage extends StatefulWidget {
   const FolderHomePage({super.key});
@@ -116,10 +116,6 @@ class _FolderHomePageState extends State<FolderHomePage> {
         pdfs = pdfsList;
         isLoading = false;
       });
-
-      if (foldersList.isEmpty && pdfsList.isEmpty) {
-        _showError('This folder is empty');
-      }
     } catch (e) {
       setState(() => isLoading = false);
       _showError('Failed to load folder: $e');
@@ -139,10 +135,6 @@ class _FolderHomePageState extends State<FolderHomePage> {
         currentDriveFolderId = folderId;
         isLoading = false;
       });
-
-      if (items.isEmpty) {
-        _showError('This folder is empty');
-      }
     } catch (e) {
       setState(() => isLoading = false);
       _showError('Failed to load Google Drive folder: $e');
@@ -509,12 +501,12 @@ class _FolderHomePageState extends State<FolderHomePage> {
 
   Widget _buildBreadcrumbs() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -522,20 +514,23 @@ class _FolderHomePageState extends State<FolderHomePage> {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.1),
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                ],
+              ),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               Icons.folder_open_rounded,
-              size: 20,
+              size: 18,
               color: Theme.of(context).colorScheme.primary,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -544,29 +539,34 @@ class _FolderHomePageState extends State<FolderHomePage> {
                   for (int i = 0; i < breadcrumbs.length; i++) ...[
                     InkWell(
                       onTap: () => _navigateToBreadcrumb(i),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
+                          horizontal: 10,
+                          vertical: 5,
                         ),
                         decoration: i == breadcrumbs.length - 1
                             ? BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.primary.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(8),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.12),
+                                    Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.06),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(6),
                               )
                             : null,
                         child: Text(
                           breadcrumbs[i].name,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: i == breadcrumbs.length - 1
-                                ? FontWeight.w700
+                                ? FontWeight.w600
                                 : FontWeight.w500,
                             color: i == breadcrumbs.length - 1
-                                ? Theme.of(context).colorScheme.primary
+                                ? Theme.of(context).colorScheme.onSurface
                                 : Theme.of(
                                     context,
                                   ).colorScheme.onSurfaceVariant,
@@ -577,10 +577,10 @@ class _FolderHomePageState extends State<FolderHomePage> {
                     ),
                     if (i < breadcrumbs.length - 1)
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
                         child: Icon(
                           Icons.chevron_right_rounded,
-                          size: 18,
+                          size: 16,
                           color: Theme.of(
                             context,
                           ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
@@ -598,12 +598,12 @@ class _FolderHomePageState extends State<FolderHomePage> {
 
   Widget _buildDriveBreadcrumbs() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -611,20 +611,27 @@ class _FolderHomePageState extends State<FolderHomePage> {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.secondary.withValues(alpha: 0.1),
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(
+                    context,
+                  ).colorScheme.secondary.withValues(alpha: 0.15),
+                  Theme.of(
+                    context,
+                  ).colorScheme.secondary.withValues(alpha: 0.08),
+                ],
+              ),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               Icons.cloud_rounded,
-              size: 20,
+              size: 18,
               color: Theme.of(context).colorScheme.secondary,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -633,24 +640,29 @@ class _FolderHomePageState extends State<FolderHomePage> {
                   for (int i = 0; i < driveBreadcrumbs.length; i++) ...[
                     InkWell(
                       onTap: () => _navigateToDriveBreadcrumb(i),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
+                          horizontal: 10,
+                          vertical: 5,
                         ),
                         decoration: i == driveBreadcrumbs.length - 1
                             ? BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.secondary.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(8),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Theme.of(context).colorScheme.secondary
+                                        .withValues(alpha: 0.12),
+                                    Theme.of(context).colorScheme.secondary
+                                        .withValues(alpha: 0.06),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(6),
                               )
                             : null,
                         child: Text(
                           driveBreadcrumbs[i].name,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: i == driveBreadcrumbs.length - 1
                                 ? FontWeight.w600
                                 : FontWeight.w500,
@@ -659,16 +671,17 @@ class _FolderHomePageState extends State<FolderHomePage> {
                                 : Theme.of(
                                     context,
                                   ).colorScheme.onSurfaceVariant,
+                            letterSpacing: -0.2,
                           ),
                         ),
                       ),
                     ),
                     if (i < driveBreadcrumbs.length - 1)
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
                         child: Icon(
                           Icons.chevron_right_rounded,
-                          size: 18,
+                          size: 16,
                           color: Theme.of(
                             context,
                           ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
@@ -686,23 +699,43 @@ class _FolderHomePageState extends State<FolderHomePage> {
 
   Widget _buildTabBar() {
     return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0.98),
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+          ],
+        ),
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
-            width: 1,
+            color: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.15),
+            width: 1.5,
           ),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.only(
+                top: 6,
+                bottom: 6,
+                left: 0,
+                right: 0,
+              ),
               child: ListView.builder(
+                clipBehavior: Clip.none,
                 scrollDirection: Axis.horizontal,
                 itemCount: openTabs.length,
                 itemBuilder: (context, index) {
@@ -724,21 +757,41 @@ class _FolderHomePageState extends State<FolderHomePage> {
                         constraints: const BoxConstraints(maxWidth: 220),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 10,
+                          vertical: 8,
                         ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
+                          gradient: isSelected && !showFolderBrowser
+                              ? LinearGradient(
+                                  colors: [
+                                    Theme.of(context).colorScheme.primary,
+                                    Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.85),
+                                  ],
+                                )
+                              : null,
                           color: isSelected && !showFolderBrowser
-                              ? Theme.of(context).colorScheme.primary
+                              ? null
                               : Theme.of(
                                   context,
                                 ).colorScheme.surfaceContainerHighest,
-                          border: Border.all(
-                            color: isSelected && !showFolderBrowser
-                                ? Theme.of(context).colorScheme.primary
-                                : Colors.transparent,
-                            width: 1.5,
-                          ),
+                          boxShadow: isSelected && !showFolderBrowser
+                              ? [
+                                  BoxShadow(
+                                    color: Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.04),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -752,7 +805,7 @@ class _FolderHomePageState extends State<FolderHomePage> {
                                       context,
                                     ).colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 12),
                             Flexible(
                               child: Text(
                                 tab.title,
@@ -772,16 +825,29 @@ class _FolderHomePageState extends State<FolderHomePage> {
                               borderRadius: BorderRadius.circular(999),
                               onTap: () => closeTab(index),
                               child: Container(
-                                padding: const EdgeInsets.all(2),
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  gradient: isSelected && !showFolderBrowser
+                                      ? null
+                                      : LinearGradient(
+                                          colors: [
+                                            Colors.red.shade400.withValues(
+                                              alpha: 0.15,
+                                            ),
+                                            Colors.red.shade600.withValues(
+                                              alpha: 0.1,
+                                            ),
+                                          ],
+                                        ),
+                                  shape: BoxShape.circle,
+                                ),
                                 child: Icon(
                                   Icons.close_rounded,
-                                  size: 16,
+                                  size: 14,
                                   color: isSelected && !showFolderBrowser
                                       ? Theme.of(context).colorScheme.onPrimary
-                                            .withValues(alpha: 0.8)
-                                      : Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
+                                            .withValues(alpha: 0.9)
+                                      : Colors.red.shade700,
                                 ),
                               ),
                             ),
@@ -797,18 +863,56 @@ class _FolderHomePageState extends State<FolderHomePage> {
           const SizedBox(width: 8),
           // New PDF Button
           Material(
-            color: showFolderBrowser
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.surfaceContainerHighest,
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             child: InkWell(
               borderRadius: BorderRadius.circular(10),
               onTap: _openFolderBrowser,
               child: Container(
-                padding: const EdgeInsets.all(11),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: showFolderBrowser
+                      ? LinearGradient(
+                          colors: [
+                            Theme.of(context).colorScheme.primary,
+                            Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.85),
+                          ],
+                        )
+                      : LinearGradient(
+                          colors: [
+                            Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withValues(alpha: 0.8),
+                          ],
+                        ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: showFolderBrowser
+                      ? [
+                          BoxShadow(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                ),
                 child: Icon(
                   Icons.add_rounded,
-                  size: 22,
+                  size: 20,
                   color: showFolderBrowser
                       ? Theme.of(context).colorScheme.onPrimary
                       : Theme.of(context).colorScheme.onSurface,
@@ -830,34 +934,87 @@ class _FolderHomePageState extends State<FolderHomePage> {
     if (!useDropbox && !useGoogleDrive) {
       // For local mode, show empty state with "open file" button
       return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 420),
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).colorScheme.surfaceContainerHighest,
+                Theme.of(context).colorScheme.surface,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.picture_as_pdf,
-                size: 64,
-                color: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.5),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).colorScheme.primaryContainer,
+                      Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer.withValues(alpha: 0.6),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.picture_as_pdf_rounded,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
-              const SizedBox(height: 16),
-              const Text(
+              const SizedBox(height: 24),
+              Text(
                 'Kitap dosyası açın',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  letterSpacing: -0.5,
+                ),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Bir .book dosyası seçmek için + butonuna tıklayın',
+              const SizedBox(height: 12),
+              Text(
+                'Bir .book dosyası seçmek için aşağıdaki butona tıklayın',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  height: 1.5,
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: _pickLocalPdf,
-                icon: const Icon(Icons.file_open),
-                label: const Text('Dosya Seç'),
+                icon: const Icon(Icons.file_open_rounded),
+                label: const Text(
+                  'Dosya Seç',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ],
           ),
@@ -869,28 +1026,87 @@ class _FolderHomePageState extends State<FolderHomePage> {
     if (useGoogleDrive) {
       if (driveItems.isEmpty) {
         return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.folder_off, size: 64, color: Colors.grey),
-                const SizedBox(height: 16),
-                const Text(
-                  'Bu klasör boş',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 420),
+            margin: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.surfaceContainerHighest,
+                  Theme.of(context).colorScheme.surface,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
                 ),
-                const SizedBox(height: 8),
-                const Text(
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Theme.of(context).colorScheme.tertiaryContainer,
+                        Theme.of(
+                          context,
+                        ).colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.folder_off_rounded,
+                    size: 48,
+                    color: Theme.of(context).colorScheme.tertiary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Bu klasör boş',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
                   'Klasör veya .book dosyası bulunamadı',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
+                const SizedBox(height: 24),
+                FilledButton.icon(
                   onPressed: () => _loadGoogleDriveFolder(currentDriveFolderId),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Yenile'),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text(
+                    'Yenile',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -902,10 +1118,10 @@ class _FolderHomePageState extends State<FolderHomePage> {
       return GridView.builder(
         padding: const EdgeInsets.all(16),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 6,
-          childAspectRatio: 0.85,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+          crossAxisCount: 8,
+          childAspectRatio: 1,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
         ),
         itemCount: driveItems.length,
         itemBuilder: (context, index) {
@@ -1086,53 +1302,88 @@ class _FolderHomePageState extends State<FolderHomePage> {
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        childAspectRatio: 1.3,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+        crossAxisCount: 6,
+        childAspectRatio: 0.85,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
       ),
       itemCount: folders.length + pdfs.length,
       itemBuilder: (context, index) {
         if (index < folders.length) {
           final folder = folders[index];
-          return GestureDetector(
-            onTap: () => _navigateToFolder(folder.path, folder.name),
-            child: Card(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        Icons.folder_rounded,
-                        size: 48,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => _navigateToFolder(folder.path, folder.name),
+              child: Card(
+                elevation: 2,
+                shadowColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: LinearGradient(
+                      colors: [
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                        Theme.of(context).colorScheme.surface,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      folder.name,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
-                        letterSpacing: -0.2,
+                  ),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.1),
+                                Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.05),
+                              ],
+                            ),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(14),
+                              topRight: Radius.circular(14),
+                            ),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.folder_rounded,
+                              size: 40,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
                       ),
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 2,
-                    ),
-                  ],
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        width: double.infinity,
+                        child: Text(
+                          folder.name,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurface,
+                            letterSpacing: -0.2,
+                          ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1140,65 +1391,109 @@ class _FolderHomePageState extends State<FolderHomePage> {
         } else {
           final pdfIndex = index - folders.length;
           final pdf = pdfs[pdfIndex];
-          return GestureDetector(
-            onTap: () => _openPdfFromDropbox(pdf),
-            child: Card(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                        child: DropboxPdfThumbnail(
-                          key: ValueKey(pdf.path),
-                          pdfPath: pdf.path,
-                          dropboxService: dropboxService!,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    width: double.infinity,
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.picture_as_pdf_rounded,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.secondary,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            pdf.name,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.onSurface,
-                              letterSpacing: -0.2,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => _openPdfFromDropbox(pdf),
+              child: Card(
+                elevation: 2,
+                shadowColor: Theme.of(
+                  context,
+                ).colorScheme.secondary.withValues(alpha: 0.15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: LinearGradient(
+                      colors: [
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                        Theme.of(context).colorScheme.surface,
                       ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
                   ),
-                ],
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Theme.of(context).colorScheme.secondary
+                                        .withValues(alpha: 0.1),
+                                    Theme.of(context).colorScheme.secondary
+                                        .withValues(alpha: 0.05),
+                                  ],
+                                ),
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(14),
+                                  topRight: Radius.circular(14),
+                                ),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  Icons.picture_as_pdf_rounded,
+                                  size: 40,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
+                                ),
+                              ),
+                            ),
+                            // Dropbox cloud badge
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0061FF),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFF0061FF,
+                                      ).withValues(alpha: 0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.cloud_rounded,
+                                  size: 12,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        width: double.infinity,
+                        child: Text(
+                          pdf.name.replaceAll('.book', ''),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurface,
+                            letterSpacing: -0.2,
+                          ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           );
@@ -1449,49 +1744,127 @@ class _FolderHomePageState extends State<FolderHomePage> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            useDropbox
-                ? 'Akilli Tahta Proje Demo - Dropbox'
-                : 'Akilli Tahta Proje Demo - Yerel',
-          ),
-          actions: [
-            IconButton(
-              tooltip: 'Yenile',
-              icon: !isFullScreen
-                  ? const Icon(Icons.fullscreen)
-                  : const Icon(Icons.fullscreen_exit),
-              onPressed: () => _makeFullscreen(),
-            ),
-            if (openTabs.isEmpty && !isLoading)
-              IconButton(
-                tooltip: 'Yenile',
-                icon: const Icon(Icons.refresh),
-                onPressed: () => _loadFolder(currentPath),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: ClipRRect(
+            child: AppBar(
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surface.withValues(alpha: 0.96),
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Depolama Seçimi',
+                onPressed: () {
+                  setState(() {
+                    showStorageSelection = true;
+                    openTabs.clear();
+                    currentTabIndex = 0;
+                  });
+                },
               ),
-            IconButton(
-              tooltip: 'Çıkış Yap',
-              icon: const Icon(Icons.logout),
-              onPressed: () {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => LoginPage(onLogin: (_, __) async => false),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.15),
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.08),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      useDropbox
+                          ? Icons.cloud_rounded
+                          : useGoogleDrive
+                          ? Icons.g_mobiledata_rounded
+                          : Icons.folder_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
                   ),
-                  (route) => false,
-                );
-              },
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      useDropbox
+                          ? 'Dropbox'
+                          : useGoogleDrive
+                          ? 'Google Drive'
+                          : 'Yerel Depo',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                // Fullscreen toggle
+                Tooltip(
+                  message: isFullScreen ? 'Tam Ekrandan Çık' : 'Tam Ekran',
+                  child: InkWell(
+                    onTap: _makeFullscreen,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        !isFullScreen
+                            ? Icons.fullscreen_rounded
+                            : Icons.fullscreen_exit_rounded,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+                // Refresh button (only when showing grid)
+                if (openTabs.isEmpty && !isLoading)
+                  Tooltip(
+                    message: 'Yenile',
+                    child: InkWell(
+                      onTap: () => useGoogleDrive
+                          ? _loadGoogleDriveFolder(currentDriveFolderId)
+                          : _loadFolder(currentPath),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: const Icon(Icons.refresh_rounded, size: 22),
+                      ),
+                    ),
+                  ),
+                // Logout
+                Tooltip(
+                  message: 'Çıkış Yap',
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              LoginPage(onLogin: (_, __) async => false),
+                        ),
+                        (route) => false,
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      margin: const EdgeInsets.only(right: 4),
+                      child: const Icon(Icons.logout_rounded, size: 22),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
             ),
-            IconButton(
-              tooltip: 'Kapat',
-              icon: const Icon(Icons.close),
-              onPressed: () {
-                SystemChannels.platform.invokeMethod<void>(
-                  'SystemNavigator.pop',
-                );
-                exit(0);
-              },
-            ),
-          ],
+          ),
         ),
         body: Column(
           children: [

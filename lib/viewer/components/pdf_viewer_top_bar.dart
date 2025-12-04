@@ -33,63 +33,123 @@ class PdfViewerTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+          ],
         ),
+        border: Border(
+          bottom: BorderSide(
+            width: 1.5,
+            color: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.15),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          // PDF İkonu ve Başlık
-          Icon(
-            Icons.picture_as_pdf,
-            color: Theme.of(context).colorScheme.primary,
-            size: 24,
+          // PDF İkonu
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.1),
+                  blurRadius: 6,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.picture_as_pdf_rounded,
+              color: Theme.of(context).colorScheme.primary,
+              size: 20,
+            ),
           ),
-          const SizedBox(width: 12),
-          Spacer(flex: 1),
+          const SizedBox(width: 10),
+          const Spacer(flex: 1),
 
           // Sayfa Bilgisi (Tıklanabilir - Thumbnail Toggle)
-          // pdfrx: Use currentPage from widget instead of pageListenable
           InkWell(
             onTap: onToggleThumbnails,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
+                gradient: showThumbnails
+                    ? LinearGradient(
+                        colors: [
+                          Theme.of(context).colorScheme.primary,
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.8),
+                        ],
+                      )
+                    : null,
                 color: showThumbnails
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(20),
+                    ? null
+                    : Theme.of(context).colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: showThumbnails
+                    ? [
+                        BoxShadow(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     showThumbnails ? Icons.grid_view : Icons.description,
-                    size: 16,
+                    size: 14,
                     color: showThumbnails
                         ? Theme.of(context).colorScheme.onPrimary
                         : Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Text(
                     'Sayfa $currentPage / ${pdfController.pagesCount ?? 0}',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: showThumbnails
                           ? Theme.of(context).colorScheme.onPrimary
                           : Theme.of(context).colorScheme.onSurface,
+                      letterSpacing: -0.2,
                     ),
                   ),
                   const SizedBox(width: 4),
                   Icon(
                     showThumbnails ? Icons.expand_more : Icons.chevron_right,
-                    size: 18,
+                    size: 16,
                     color: showThumbnails
                         ? Theme.of(context).colorScheme.onPrimary
                         : Theme.of(context).colorScheme.onSurfaceVariant,
@@ -99,7 +159,7 @@ class PdfViewerTopBar extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
 
           // Sayfaya Git Butonu
           if (onGoToPage != null)
@@ -107,33 +167,40 @@ class PdfViewerTopBar extends StatelessWidget {
               message: 'Sayfaya Git',
               child: InkWell(
                 onTap: onGoToPage,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                    horizontal: 10,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(20),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.numbers,
-                        size: 16,
+                        size: 14,
                         color: Theme.of(context).colorScheme.primary,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 5),
                       Text(
                         'Git',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: Theme.of(context).colorScheme.onSurface,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     ],
@@ -142,32 +209,46 @@ class PdfViewerTopBar extends StatelessWidget {
               ),
             ),
 
-          if (onGoToPage != null) const SizedBox(width: 16),
+          if (onGoToPage != null) const SizedBox(width: 12),
 
           // Zoom Seviyesi
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(20),
+              color: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.zoom_in, size: 16),
-                const SizedBox(width: 6),
+                Icon(
+                  Icons.zoom_in,
+                  size: 14,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 5),
                 Text(
                   '${(zoomLevel * 100).toInt()}%',
-                  style: const TextStyle(
-                    fontSize: 13,
+                  style: TextStyle(
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
                   ),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
 
           InkWell(
             onTap: () {
@@ -179,28 +260,38 @@ class PdfViewerTopBar extends StatelessWidget {
                 ),
               );
             },
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(20),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.access_time,
-                    size: 16,
+                    size: 14,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 5),
                   Text(
                     _formatTimeDisplay(),
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       fontFeatures: [FontFeature.tabularFigures()],
+                      letterSpacing: -0.2,
                     ),
                   ),
                 ],
@@ -208,14 +299,33 @@ class PdfViewerTopBar extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
 
           // Geri Butonu
           if (onBack != null)
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: onBack,
-              tooltip: 'Kapat',
+            Tooltip(
+              message: 'Kapat',
+              child: InkWell(
+                onTap: onBack,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.red.shade400.withValues(alpha: 0.15),
+                        Colors.red.shade600.withValues(alpha: 0.1),
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: Colors.red.shade700,
+                  ),
+                ),
+              ),
             ),
         ],
       ),

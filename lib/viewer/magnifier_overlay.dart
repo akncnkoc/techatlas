@@ -41,26 +41,31 @@ class MagnifierOverlay extends StatelessWidget {
                 height: 150,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.blue,
-                    width: 3,
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).colorScheme.primary,
+                      Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.8),
+                    ],
                   ),
+                  border: Border.all(color: Colors.white, width: 3),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 10,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.4),
+                      blurRadius: 12,
                       spreadRadius: 2,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                child: ClipOval(
-                  child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 0, sigmaY: 0),
-                    child: Container(
-                      color: Colors.transparent,
-                    ),
-                  ),
-                ),
+                child: ClipOval(child: Container(color: Colors.transparent)),
               ),
             ),
           ),
@@ -73,10 +78,7 @@ class MagnifierPainter extends CustomPainter {
   final Rect selectedArea;
   final double magnification;
 
-  MagnifierPainter({
-    required this.selectedArea,
-    required this.magnification,
-  });
+  MagnifierPainter({required this.selectedArea, required this.magnification});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -93,19 +95,27 @@ class MagnifierPainter extends CustomPainter {
 
     canvas.drawPath(overlayPath, overlayPaint);
 
-    // Draw border around selected area
+    // Draw gradient border around selected area
     final borderPaint = Paint()
-      ..color = Colors.blue
+      ..shader = ui.Gradient.linear(
+        selectedArea.topLeft,
+        selectedArea.bottomRight,
+        [const Color(0xFF2196F3), const Color(0xFF1976D2)],
+      )
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
+      ..strokeWidth = 4;
     canvas.drawRect(selectedArea, borderPaint);
 
-    // Draw corner handles
-    final handlePaint = Paint()
-      ..color = Colors.blue
-      ..style = PaintingStyle.fill;
+    // Inner glow effect
+    final glowPaint = Paint()
+      ..color = const Color(0xFF2196F3).withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawRect(selectedArea, glowPaint);
 
-    final handleSize = 12.0;
+    // Draw corner handles with gradient
+    final handleSize = 14.0;
     final corners = [
       selectedArea.topLeft,
       selectedArea.topRight,
@@ -114,14 +124,31 @@ class MagnifierPainter extends CustomPainter {
     ];
 
     for (final corner in corners) {
-      canvas.drawCircle(corner, handleSize / 2, handlePaint);
+      // Outer glow
+      canvas.drawCircle(
+        corner,
+        handleSize / 2 + 2,
+        Paint()
+          ..color = const Color(0xFF2196F3).withValues(alpha: 0.3)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+      );
+
+      // Gradient fill
+      final gradientPaint = Paint()
+        ..shader = ui.Gradient.radial(corner, handleSize / 2, [
+          const Color(0xFF64B5F6),
+          const Color(0xFF2196F3),
+        ]);
+      canvas.drawCircle(corner, handleSize / 2, gradientPaint);
+
+      // White border
       canvas.drawCircle(
         corner,
         handleSize / 2,
         Paint()
           ..color = Colors.white
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
+          ..strokeWidth = 2.5,
       );
     }
   }
@@ -153,10 +180,18 @@ class MagnifierState {
   Rect? getSelectionRect() {
     if (startPoint == null || currentPoint == null) return null;
 
-    final left = startPoint!.dx < currentPoint!.dx ? startPoint!.dx : currentPoint!.dx;
-    final top = startPoint!.dy < currentPoint!.dy ? startPoint!.dy : currentPoint!.dy;
-    final right = startPoint!.dx > currentPoint!.dx ? startPoint!.dx : currentPoint!.dx;
-    final bottom = startPoint!.dy > currentPoint!.dy ? startPoint!.dy : currentPoint!.dy;
+    final left = startPoint!.dx < currentPoint!.dx
+        ? startPoint!.dx
+        : currentPoint!.dx;
+    final top = startPoint!.dy < currentPoint!.dy
+        ? startPoint!.dy
+        : currentPoint!.dy;
+    final right = startPoint!.dx > currentPoint!.dx
+        ? startPoint!.dx
+        : currentPoint!.dx;
+    final bottom = startPoint!.dy > currentPoint!.dy
+        ? startPoint!.dy
+        : currentPoint!.dy;
 
     return Rect.fromLTRB(left, top, right, bottom);
   }
@@ -198,11 +233,17 @@ class MagnifierState {
   }) {
     return MagnifierState(
       startPoint: clearStartPoint ? null : (startPoint ?? this.startPoint),
-      currentPoint: clearCurrentPoint ? null : (currentPoint ?? this.currentPoint),
-      selectedArea: clearSelectedArea ? null : (selectedArea ?? this.selectedArea),
+      currentPoint: clearCurrentPoint
+          ? null
+          : (currentPoint ?? this.currentPoint),
+      selectedArea: clearSelectedArea
+          ? null
+          : (selectedArea ?? this.selectedArea),
       isSelecting: isSelecting ?? this.isSelecting,
       isResizing: isResizing ?? this.isResizing,
-      resizeHandle: clearResizeHandle ? null : (resizeHandle ?? this.resizeHandle),
+      resizeHandle: clearResizeHandle
+          ? null
+          : (resizeHandle ?? this.resizeHandle),
     );
   }
 }

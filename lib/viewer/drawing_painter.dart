@@ -11,19 +11,16 @@ class DrawingPainter extends CustomPainter {
   final Map<String, Paint> _paintCache = {};
 
   Paint _getPaint(Stroke stroke) {
-    final key = '${stroke.color.r}_${stroke.color.g}_${stroke.color.b}_${stroke.width}_${stroke.isHighlighter}';
+    final key =
+        '${stroke.color.r}_${stroke.color.g}_${stroke.color.b}_${stroke.width}_${stroke.isHighlighter}';
 
     return _paintCache.putIfAbsent(key, () {
       return Paint()
         ..color = stroke.isHighlighter
             ? stroke.color.withValues(alpha: 0.4)
             : stroke.color
-        ..strokeWidth = stroke.isHighlighter
-            ? stroke.width * 2.5
-            : stroke.width
-        ..strokeCap = stroke.isHighlighter
-            ? StrokeCap.square
-            : StrokeCap.round
+        ..strokeWidth = stroke.isHighlighter ? stroke.width * 2.5 : stroke.width
+        ..strokeCap = stroke.isHighlighter ? StrokeCap.square : StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke
         ..isAntiAlias = true
@@ -79,37 +76,8 @@ class DrawingPainter extends CustomPainter {
   }
 
   void _drawFreehand(Canvas canvas, Stroke stroke, Paint paint) {
-    if (stroke.points.length == 1) {
-      canvas.drawCircle(stroke.points.first, stroke.width / 2, paint);
-    } else if (stroke.points.length == 2) {
-      // 2 nokta varsa düz çizgi çiz
-      canvas.drawLine(stroke.points.first, stroke.points.last, paint);
-    } else {
-      // 3 veya daha fazla nokta için smooth path
-      final path = Path();
-      path.moveTo(stroke.points.first.dx, stroke.points.first.dy);
-
-      for (int i = 1; i < stroke.points.length - 1; i++) {
-        final current = stroke.points[i];
-        final next = stroke.points[i + 1];
-        final controlPoint = Offset(
-          (current.dx + next.dx) / 2,
-          (current.dy + next.dy) / 2,
-        );
-        path.quadraticBezierTo(
-          current.dx,
-          current.dy,
-          controlPoint.dx,
-          controlPoint.dy,
-        );
-      }
-
-      // Son noktaya çiz
-      final lastPoint = stroke.points.last;
-      path.lineTo(lastPoint.dx, lastPoint.dy);
-
-      canvas.drawPath(path, paint);
-    }
+    if (stroke.points.isEmpty) return;
+    canvas.drawPath(stroke.path, paint);
   }
 
   void _drawRectangle(Canvas canvas, Stroke stroke, Paint paint) {
@@ -298,24 +266,81 @@ class DrawingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant DrawingPainter oldDelegate) {
-    // Optimize: Only repaint when strokes actually change
+    return true;
+  }
+}
 
-    // // If stroke count changed, definitely repaint
-    // if (strokes.length != oldDelegate.strokes.length) return true;
+class HistoryPainter extends DrawingPainter {
+  final int repaintVersion;
 
-    // // If no strokes, no need to repaint
-    // if (strokes.isEmpty) return false;
+  HistoryPainter({required super.strokes, required this.repaintVersion});
 
-    // // Check if the last stroke (active drawing) has changed
-    // final lastStroke = strokes.last;
-    // final lastOldStroke = oldDelegate.strokes.last;
+  @override
+  bool shouldRepaint(covariant HistoryPainter oldDelegate) {
+    // Repaint if the version changed (triggered by _historyNotifier)
+    if (repaintVersion != oldDelegate.repaintVersion) {
+      return true;
+    }
 
-    // // If it's the same object reference, check point count
-    // if (identical(lastStroke, lastOldStroke)) {
-    //   return lastStroke.points.length != lastOldStroke.points.length;
-    // }
+    // Fallback: Check if list instance or length changed
+    if (identical(strokes, oldDelegate.strokes)) {
+      return strokes.length != oldDelegate.strokes.length;
+    }
+    return true;
+  }
+}
 
-    // Different stroke objects = need to repaint
+class ActiveStrokePainter extends DrawingPainter {
+  final Stroke? activeStroke;
+
+  ActiveStrokePainter({this.activeStroke}) : super(strokes: []);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (activeStroke == null || activeStroke!.points.isEmpty) return;
+
+    final paint = _getPaint(activeStroke!);
+
+    switch (activeStroke!.type) {
+      case StrokeType.freehand:
+        _drawFreehand(canvas, activeStroke!, paint);
+        break;
+      case StrokeType.rectangle:
+        _drawRectangle(canvas, activeStroke!, paint);
+        break;
+      case StrokeType.circle:
+        _drawCircle(canvas, activeStroke!, paint);
+        break;
+      case StrokeType.line:
+        _drawLine(canvas, activeStroke!, paint);
+        break;
+      case StrokeType.arrow:
+        _drawArrow(canvas, activeStroke!, paint);
+        break;
+      case StrokeType.triangle:
+        _drawTriangle(canvas, activeStroke!, paint);
+        break;
+      case StrokeType.star:
+        _drawStar(canvas, activeStroke!, paint);
+        break;
+      case StrokeType.pentagon:
+        _drawPentagon(canvas, activeStroke!, paint);
+        break;
+      case StrokeType.hexagon:
+        _drawHexagon(canvas, activeStroke!, paint);
+        break;
+      case StrokeType.ellipse:
+        _drawEllipse(canvas, activeStroke!, paint);
+        break;
+      case StrokeType.doubleArrow:
+        _drawDoubleArrow(canvas, activeStroke!, paint);
+        break;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant ActiveStrokePainter oldDelegate) {
+    // Always repaint active stroke as it changes continuously during drawing
     return true;
   }
 }

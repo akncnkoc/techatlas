@@ -5,10 +5,7 @@ import 'draggable_resizable_dialog.dart';
 class AnalysisResultDialog extends StatelessWidget {
   final AnalysisResult result;
 
-  const AnalysisResultDialog({
-    super.key,
-    required this.result,
-  });
+  const AnalysisResultDialog({super.key, required this.result});
 
   @override
   Widget build(BuildContext context) {
@@ -41,10 +38,7 @@ class AnalysisResultDialog extends StatelessWidget {
                   // Soru detayları
                   const Text(
                     '📝 Soru Detayları',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
 
@@ -64,22 +58,23 @@ class AnalysisResultDialog extends StatelessWidget {
     return DraggableDialogHeader(
       onClose: () => Navigator.pop(context),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary,
+          gradient: LinearGradient(
+            colors: [
+              Theme.of(context).colorScheme.primary,
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.85),
+            ],
+          ),
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
           ),
         ),
         child: Row(
           children: [
-            const Icon(
-              Icons.check_circle,
-              color: Colors.white,
-              size: 28,
-            ),
-            const SizedBox(width: 12),
+            Icon(Icons.check_circle_rounded, color: Colors.white, size: 24),
+            const SizedBox(width: 10),
             Expanded(
               child: Row(
                 children: [
@@ -88,33 +83,38 @@ class AnalysisResultDialog extends StatelessWidget {
                       '${result.soruSayisi} Soru Bulundu',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: -0.3,
                       ),
                     ),
                   ),
                   // Drag indicator
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
+                      children: [
                         Icon(
                           Icons.drag_indicator,
                           color: Colors.white,
-                          size: 20,
+                          size: 18,
                         ),
                         SizedBox(width: 4),
                         Text(
                           'Taşı',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
+                            letterSpacing: -0.2,
                           ),
                         ),
                       ],
@@ -123,10 +123,16 @@ class AnalysisResultDialog extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
+              icon: const Icon(
+                Icons.close_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
               onPressed: () => Navigator.pop(context),
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(),
             ),
           ],
         ),
@@ -138,14 +144,15 @@ class AnalysisResultDialog extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           '📸 Cevaplı Görsel',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
+            letterSpacing: -0.2,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         // Resmi sınırlı boyutta göster
         ConstrainedBox(
           constraints: BoxConstraints(
@@ -154,10 +161,7 @@ class AnalysisResultDialog extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.memory(
-              result.resultImage!,
-              fit: BoxFit.contain,
-            ),
+            child: Image.memory(result.resultImage!, fit: BoxFit.contain),
           ),
         ),
       ],
@@ -166,65 +170,75 @@ class AnalysisResultDialog extends StatelessWidget {
 
   Widget _buildQuestionCard(BuildContext context, Soru soru) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Card(
-        elevation: 2,
+        elevation: 1,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Soru başlığı
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+                  horizontal: 10,
+                  vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary
-                      .withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.15),
+                      Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.08),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   'Soru ${soru.soruNo}',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: 13,
                     color: Theme.of(context).colorScheme.primary,
+                    letterSpacing: -0.2,
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               // Soru metni
               Text(
                 soru.metin,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   height: 1.5,
+                  letterSpacing: -0.1,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               // Cevap
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.green,
-                    width: 2,
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.green.shade50,
+                      Colors.green.shade100.withValues(alpha: 0.3),
+                    ],
                   ),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green, width: 1.5),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.check_circle,
+                    Icon(
+                      Icons.check_circle_rounded,
                       color: Colors.green,
-                      size: 20,
+                      size: 18,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -232,27 +246,30 @@ class AnalysisResultDialog extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.green,
-                        fontSize: 14,
+                        fontSize: 13,
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               // Açıklama
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.lightbulb_outline,
-                      size: 18,
+                    Icon(
+                      Icons.lightbulb_outline_rounded,
+                      size: 16,
                       color: Colors.amber,
                     ),
                     const SizedBox(width: 8),
@@ -260,9 +277,10 @@ class AnalysisResultDialog extends StatelessWidget {
                       child: Text(
                         soru.aciklama,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 12,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           height: 1.5,
+                          letterSpacing: -0.1,
                         ),
                       ),
                     ),

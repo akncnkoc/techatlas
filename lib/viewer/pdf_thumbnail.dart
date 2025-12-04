@@ -42,6 +42,7 @@ class PdfThumbnailList extends StatefulWidget {
   final int currentPage;
   final int totalPages;
   final Function(int) onPageSelected;
+  final Axis scrollDirection;
 
   const PdfThumbnailList({
     super.key,
@@ -50,6 +51,7 @@ class PdfThumbnailList extends StatefulWidget {
     required this.currentPage,
     required this.totalPages,
     required this.onPageSelected,
+    this.scrollDirection = Axis.horizontal,
   });
 
   @override
@@ -85,16 +87,18 @@ class _PdfThumbnailListState extends State<PdfThumbnailList> {
   void _scrollToCurrentPage() {
     if (!_scrollController.hasClients) return;
 
-    // Her thumbnail yaklaşık 102 piksel genişliğinde (90 + 6*2 margin)
-    const double thumbnailWidth = 102.0;
-    final double targetPosition = (widget.currentPage - 1) * thumbnailWidth;
+    // Her thumbnail yaklaşık 102 piksel genişliğinde/yüksekliğinde (90 + 6*2 margin)
+    const double thumbnailSize = 102.0;
+    final double targetPosition = (widget.currentPage - 1) * thumbnailSize;
 
-    // Ekran genişliğinin ortasını hesapla
-    final double screenCenter = MediaQuery.of(context).size.width / 2;
+    // Ekran genişliğinin/yüksekliğinin ortasını hesapla
+    final double viewportDimension =
+        _scrollController.position.viewportDimension;
+    final double screenCenter = viewportDimension / 2;
 
     // Thumbnail'ı ortaya getirmek için pozisyonu ayarla
     final double centeredPosition =
-        targetPosition - screenCenter + (thumbnailWidth / 2);
+        targetPosition - screenCenter + (thumbnailSize / 2);
 
     // Scroll limitlerini kontrol et
     final double maxScroll = _scrollController.position.maxScrollExtent;
@@ -126,34 +130,46 @@ class _PdfThumbnailListState extends State<PdfThumbnailList> {
           }
         },
         child: Container(
-          height: 140,
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            border: Border(
-              top: BorderSide(color: colorScheme.outlineVariant, width: 1),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
+          // Height is only relevant for horizontal scrolling
+          height: widget.scrollDirection == Axis.horizontal ? 140 : null,
+          width: widget.scrollDirection == Axis.vertical ? 120 : null,
+          decoration: widget.scrollDirection == Axis.horizontal
+              ? BoxDecoration(
+                  color: colorScheme.surface,
+                  border: Border(
+                    top: BorderSide(
+                      color: colorScheme.outlineVariant,
+                      width: 1,
+                    ),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                )
+              : null,
           child: ListView.builder(
             controller: _scrollController,
-            scrollDirection: Axis.horizontal,
+            scrollDirection: widget.scrollDirection,
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
             itemCount: widget.totalPages,
             itemBuilder: (context, index) {
               final pageNumber = index + 1;
-              return PdfThumbnail(
+              final thumbnail = PdfThumbnail(
                 controller: widget.pdfController,
                 pdfDocument: widget.pdfDocument,
                 pageNumber: pageNumber,
                 isCurrentPage: pageNumber == widget.currentPage,
                 onTap: () => widget.onPageSelected(pageNumber),
               );
+
+              if (widget.scrollDirection == Axis.vertical) {
+                return SizedBox(height: 140, child: thumbnail);
+              }
+              return thumbnail;
             },
           ),
         ),
@@ -258,6 +274,7 @@ class _PdfThumbnailState extends State<PdfThumbnail> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isSelected = widget.isCurrentPage;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
@@ -267,50 +284,67 @@ class _PdfThumbnailState extends State<PdfThumbnail> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
           width: 90,
-          margin: const EdgeInsets.symmetric(horizontal: 6),
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: colorScheme.surface,
             border: Border.all(
-              color: widget.isCurrentPage
+              color: isSelected
                   ? colorScheme.primary
-                  : colorScheme.inversePrimary,
-              width: widget.isCurrentPage ? 2.5 : 1.5,
+                  : _isHovering
+                  ? colorScheme.outline
+                  : colorScheme.outlineVariant.withValues(alpha: 0.5),
+              width: isSelected ? 2 : 1,
             ),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: widget.isCurrentPage || _isHovering
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isSelected || _isHovering
                 ? [
                     BoxShadow(
-                      color: colorScheme.primary.withValues(alpha: 0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: isSelected
+                          ? colorScheme.primary.withValues(alpha: 0.25)
+                          : Colors.black.withValues(alpha: 0.05),
+                      blurRadius: isSelected ? 12 : 8,
+                      offset: const Offset(0, 4),
                     ),
                   ]
-                : null,
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
           child: Column(
             children: [
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.3,
+                    ),
                     borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(11),
-                      topRight: Radius.circular(11),
+                      topLeft: Radius.circular(14),
+                      topRight: Radius.circular(14),
                     ),
                   ),
                   child: ClipRRect(
                     borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(11),
-                      topRight: Radius.circular(11),
+                      topLeft: Radius.circular(14),
+                      topRight: Radius.circular(14),
                     ),
                     child: _cachedImage != null
                         ? RawImage(image: _cachedImage, fit: BoxFit.cover)
                         : Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(
-                                colorScheme.primary,
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation(
+                                  colorScheme.primary.withValues(alpha: 0.5),
+                                ),
                               ),
                             ),
                           ),
@@ -318,25 +352,29 @@ class _PdfThumbnailState extends State<PdfThumbnail> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 decoration: BoxDecoration(
-                  color: widget.isCurrentPage
+                  color: isSelected
                       ? colorScheme.primary
-                      : colorScheme.surfaceContainerHighest,
+                      : colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.5,
+                        ),
                   borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(11),
-                    bottomRight: Radius.circular(11),
+                    bottomLeft: Radius.circular(14),
+                    bottomRight: Radius.circular(14),
                   ),
                 ),
                 child: Center(
                   child: Text(
                     '${widget.pageNumber}',
                     style: TextStyle(
-                      color: widget.isCurrentPage
+                      color: isSelected
                           ? colorScheme.onPrimary
-                          : colorScheme.onSurface,
+                          : colorScheme.onSurfaceVariant,
                       fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                       letterSpacing: -0.2,
                     ),
                   ),

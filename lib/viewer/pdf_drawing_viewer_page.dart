@@ -1,9 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 import '../core/extensions/pdf_viewer_controller_extensions.dart';
 import 'pdf_viewer_with_drawing.dart';
-import 'tool_panel.dart';
+import 'widgets/vertical_tool_sidebar.dart';
 import '../soru_cozucu_service.dart';
 import 'calculator_widget.dart';
 import 'scratchpad_widget.dart';
@@ -12,10 +13,9 @@ import 'page_time_tracker.dart';
 
 // Components
 import 'components/pdf_viewer_top_bar.dart';
-import 'components/thumbnail_panel.dart';
+import 'components/right_thumbnail_sidebar.dart';
 import 'components/floating_tool_menu.dart';
 import 'components/analysis_result_dialog.dart';
-import 'components/bottom_drag_handle.dart';
 
 // Services
 import 'services/image_capture_service.dart';
@@ -64,6 +64,9 @@ class _PdfDrawingViewerPageState extends State<PdfDrawingViewerPage> {
   bool _showCalculator = false;
   bool _showScratchpad = false;
   bool _isPdfLoading = true;
+
+  // Sidebar Position State
+  Offset _sidebarPosition = const Offset(16, 200);
 
   @override
   void initState() {
@@ -459,39 +462,80 @@ class _PdfDrawingViewerPageState extends State<PdfDrawingViewerPage> {
                       // PDF Viewer (Full screen)
                       RepaintBoundary(
                         key: _canvasKey,
-                        child: PdfViewerWithDrawing(
-                          key: _drawingKey,
-                          controller: _pdfController,
-                          documentRef: _pdfDocument,
-                          cropData: widget.cropData,
-                          zipFilePath: widget.zipFilePath,
-                          zipBytes: widget.zipBytes,
+                        child: Listener(
+                          onPointerSignal: (event) {
+                            if (event is PointerScrollEvent) {
+                              // print('Scroll event: ${event.scrollDelta}');
+                              final controller = _pdfController;
+                              if (controller.isReady) {
+                                final matrix = controller.value.clone();
+                                final dy = -event.scrollDelta.dy;
+                                matrix.translate(0.0, dy);
+                                controller.value = matrix;
+                              }
+                            }
+                          },
+                          onPointerPanZoomUpdate: (event) {
+                            // print('PanZoom event: ${event.panDelta}');
+                            final controller = _pdfController;
+                            if (controller.isReady) {
+                              final matrix = controller.value.clone();
+                              final dy = event.panDelta.dy;
+                              matrix.translate(0.0, dy);
+                              controller.value = matrix;
+                            }
+                          },
+                          child: PdfViewerWithDrawing(
+                            key: _drawingKey,
+                            controller: _pdfController,
+                            documentRef: _pdfDocument,
+                            cropData: widget.cropData,
+                            zipFilePath: widget.zipFilePath,
+                            zipBytes: widget.zipBytes,
+                          ),
                         ),
                       ),
 
                       // Floating Panel (Overlay)
-                      ToolPanel(
-                        controller: _pdfController,
-                        onSolveProblem: _serverHealthy ? _solveProblem : null,
-                        toolNotifier: _drawingKey.currentState?.toolNotifier,
-                        canUndoNotifier:
-                            _drawingKey.currentState?.canUndoNotifier,
-                        canRedoNotifier:
-                            _drawingKey.currentState?.canRedoNotifier,
-                        onUndo: () => _drawingKey.currentState?.undo(),
-                        onRedo: () => _drawingKey.currentState?.redo(),
-                        onClear: () =>
-                            _drawingKey.currentState?.clearCurrentPage(),
-                      ),
-
-                      // Drag Handle - Alt kısımda thumbnail açmak için
-                      if (!_showThumbnails)
-                        BottomDragHandle(
-                          onSwipeUp: () {
-                            setState(() {
-                              _showThumbnails = true;
-                            });
-                          },
+                      // Vertical Tool Sidebar (Draggable)
+                      if (_drawingKey.currentState != null)
+                        Positioned(
+                          left: _sidebarPosition.dx,
+                          top: _sidebarPosition.dy,
+                          child: VerticalToolSidebar(
+                            drawingProvider: _drawingProvider,
+                            toolNotifier:
+                                _drawingKey.currentState!.toolNotifier,
+                            canUndoNotifier:
+                                _drawingKey.currentState!.canUndoNotifier,
+                            canRedoNotifier:
+                                _drawingKey.currentState!.canRedoNotifier,
+                            onSolve: _serverHealthy ? _solveProblem : null,
+                            onRotateLeft: () =>
+                                _drawingKey.currentState!.rotateLeft(),
+                            onRotateRight: () =>
+                                _drawingKey.currentState!.rotateRight(),
+                            onFirstPage: () => _pdfController.jumpToPage(1),
+                            onPreviousPage: () => _pdfController.previousPage(),
+                            onNextPage: () => _pdfController.nextPage(),
+                            onLastPage: () => _pdfController.jumpToPage(
+                              _pdfController.pagesCount ?? 1,
+                            ),
+                            onUndo: () => _drawingKey.currentState!.undo(),
+                            onRedo: () => _drawingKey.currentState!.redo(),
+                            onClear: () =>
+                                _drawingKey.currentState!.clearCurrentPage(),
+                            onDragUpdate: (details) {
+                              setState(() {
+                                _sidebarPosition += details.delta;
+                              });
+                            },
+                            onToggleThumbnails: () {
+                              setState(() {
+                                _showThumbnails = !_showThumbnails;
+                              });
+                            },
+                          ),
                         ),
 
                       // Floating Tool Menu (Sağ alt köşe)
@@ -508,23 +552,28 @@ class _PdfDrawingViewerPageState extends State<PdfDrawingViewerPage> {
                       // Scratchpad Widget (Overlay)
                       if (_showScratchpad)
                         ScratchpadWidget(onClose: _closeScratchpad),
+
+                      // Right Thumbnail Sidebar
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        right: _showThumbnails ? 0 : -160, // Hide off-screen
+                        top: 0,
+                        bottom: 0,
+                        child: RightThumbnailSidebar(
+                          pdfController: _pdfController,
+                          pdfDocument: _pdfDocument,
+                          currentPage: _drawingProvider.currentPage,
+                          onClose: () {
+                            setState(() {
+                              _showThumbnails = false;
+                            });
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),
-
-                // ALT KISIM - PDF Thumbnail List
-                // pdfrx: Use provider's currentPage instead of pageListenable
-                if (_showThumbnails)
-                  ThumbnailPanel(
-                    pdfController: _pdfController,
-                    pdfDocument: _pdfDocument,
-                    currentPage: _drawingProvider.currentPage,
-                    onClose: () {
-                      setState(() {
-                        _showThumbnails = false;
-                      });
-                    },
-                  ),
               ],
             ),
 
