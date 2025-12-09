@@ -124,8 +124,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   double _lastRenderedScale = 1.0;
   final ValueNotifier<double> _pdfScaleNotifier = ValueNotifier<double>(1.0);
 
-  int _activePointers = 0; // Aktif parmak sayısı
-  bool _wasMultiTouch = false; // Çoklu dokunma kontrolü
+  // int _activePointers = 0; // Aktif parmak sayısı
+  // bool _wasMultiTouch = false; // Çoklu dokunma kontrolü
 
   // Crop data page indexing check
   bool? _isCropDataZeroBased;
@@ -217,8 +217,9 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
   void _onPageChanged() {
     // pdfrx: Check if page number has changed
-    if (!widget.controller.isReady || widget.controller.pageNumber == null)
+    if (!widget.controller.isReady || widget.controller.pageNumber == null) {
       return;
+    }
 
     final page = widget.controller.pageNumber!;
     if (page != _currentPage) {
@@ -1625,13 +1626,13 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                                       (hasSolution
                                               ? Colors.green.shade700
                                               : Colors.blue.shade700)
-                                          .withOpacity(0.4),
+                                          .withValues(alpha: 0.4),
                                   blurRadius: 8,
                                   spreadRadius: 1,
                                   offset: const Offset(0, 3),
                                 ),
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
+                                  color: Colors.black.withValues(alpha: 0.3),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -1648,7 +1649,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                                       shape: BoxShape.circle,
                                       gradient: RadialGradient(
                                         colors: [
-                                          Colors.white.withOpacity(0.3),
+                                          Colors.white.withValues(alpha: 0.3),
                                           Colors.transparent,
                                         ],
                                       ),
@@ -1666,7 +1667,9 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                                       letterSpacing: -0.5,
                                       shadows: [
                                         Shadow(
-                                          color: Colors.black.withOpacity(0.5),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.5,
+                                          ),
                                           offset: const Offset(0, 1),
                                           blurRadius: 2,
                                         ),
@@ -1696,8 +1699,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                                         ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.amber.withOpacity(
-                                              0.6,
+                                            color: Colors.amber.withValues(
+                                              alpha: 0.6,
                                             ),
                                             blurRadius: 4,
                                             spreadRadius: 1,
@@ -1814,7 +1817,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
               ValueListenableBuilder<Matrix4>(
                 valueListenable: transformationController,
                 builder: (context, matrix, child) {
-                  final currentScale = matrix.getMaxScaleOnAxis();
+                  // final currentScale = matrix.getMaxScaleOnAxis();
                   return InteractiveViewer(
                     transformationController: transformationController,
                     minScale: _minZoom,
@@ -1843,25 +1846,25 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                     },
                     child: Listener(
                       onPointerDown: (event) {
-                        setState(() {
-                          _activePointers++;
-                          if (_activePointers > 1) {
-                            _wasMultiTouch = true;
-                          } else if (_activePointers == 1) {
-                            // Yeni gesture başlıyor
-                            _wasMultiTouch = false;
-                          }
-                        });
+                        // setState(() {
+                        //   _activePointers++;
+                        //   if (_activePointers > 1) {
+                        //     _wasMultiTouch = true;
+                        //   } else if (_activePointers == 1) {
+                        //     // Yeni gesture başlıyor
+                        //     _wasMultiTouch = false;
+                        //   }
+                        // });
                       },
                       onPointerUp: (event) {
-                        setState(() {
-                          _activePointers--;
-                        });
+                        // setState(() {
+                        //   _activePointers--;
+                        // });
                       },
                       onPointerCancel: (event) {
-                        setState(() {
-                          _activePointers--;
-                        });
+                        // setState(() {
+                        //   _activePointers--;
+                        // });
                       },
                       child: child!,
                     ),
@@ -2172,7 +2175,7 @@ class _SelectionPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.blue.withOpacity(0.3)
+      ..color = Colors.blue.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()
@@ -2585,11 +2588,13 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
                                 decoration: BoxDecoration(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.surface.withOpacity(0.9),
+                                  ).colorScheme.surface.withValues(alpha: 0.9),
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.2,
+                                      ),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -2817,7 +2822,7 @@ class _SwipeableImageDialogState extends State<_SwipeableImageDialog> {
                               style: IconButton.styleFrom(
                                 backgroundColor: Theme.of(
                                   context,
-                                ).colorScheme.surface.withOpacity(0.8),
+                                ).colorScheme.surface.withValues(alpha: 0.8),
                               ),
                             ),
                           ),

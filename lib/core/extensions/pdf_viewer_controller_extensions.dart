@@ -7,8 +7,8 @@ extension PdfViewerControllerExtensions on PdfViewerController {
   /// Navigate to the next page
   /// Note: pdfrx doesn't support animation parameters, navigation is instant
   void nextPage({Duration? duration, Curve? curve}) {
-    if (isReady && pageNumber != null && pageCount != null) {
-      if (pageNumber! < pageCount!) {
+    if (isReady && pageNumber != null) {
+      if (pageNumber! < pageCount) {
         goToPage(pageNumber: pageNumber! + 1);
       }
     }

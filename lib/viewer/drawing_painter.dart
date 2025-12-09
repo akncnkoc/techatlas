@@ -276,11 +276,6 @@ class HistoryPainter extends DrawingPainter {
   HistoryPainter({required super.strokes, required this.repaintVersion});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    super.paint(canvas, size);
-  }
-
-  @override
   bool shouldRepaint(covariant HistoryPainter oldDelegate) {
     // Repaint if the version changed (triggered by _historyNotifier)
     if (repaintVersion != oldDelegate.repaintVersion) {

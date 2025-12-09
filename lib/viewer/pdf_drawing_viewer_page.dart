@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
+import 'package:vector_math/vector_math_64.dart' hide Colors;
 import '../core/extensions/pdf_viewer_controller_extensions.dart';
 import 'pdf_viewer_with_drawing.dart';
 import 'widgets/vertical_tool_sidebar.dart';
@@ -453,7 +454,9 @@ class _PdfDrawingViewerPageState extends State<PdfDrawingViewerPage> {
                               if (controller.isReady) {
                                 final matrix = controller.value.clone();
                                 final dy = -event.scrollDelta.dy;
-                                matrix.translate(0.0, dy);
+                                matrix.translateByVector3(
+                                  Vector3(0.0, dy, 0.0),
+                                );
                                 controller.value = matrix;
                               }
                             }
@@ -464,7 +467,7 @@ class _PdfDrawingViewerPageState extends State<PdfDrawingViewerPage> {
                             if (controller.isReady) {
                               final matrix = controller.value.clone();
                               final dy = event.panDelta.dy;
-                              matrix.translate(0.0, dy);
+                              matrix.translateByVector3(Vector3(0, dy, 0));
                               controller.value = matrix;
                             }
                           },

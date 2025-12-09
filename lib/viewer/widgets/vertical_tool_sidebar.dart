@@ -46,13 +46,24 @@ class VerticalToolSidebar extends StatefulWidget {
 
 class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
   // Helper to update tool
-  void _updateTool(ToolState Function(ToolState) updater) {
+  void _updateTool(ToolState Function(ToolState) updater, {bool? showPopout}) {
     widget.drawingProvider.setTool(updater);
     widget.toolNotifier.value = updater(widget.toolNotifier.value);
-    setState(() => _isSettingsOpen = false); // Close settings when tool changes
+    setState(() {
+      _isSettingsOpen = false; // Close settings when tool changes
+      if (showPopout != null) _showToolPopout = showPopout;
+    });
   }
 
   bool _isSettingsOpen = false;
+  bool _showToolPopout = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final tool = widget.toolNotifier.value;
+    _showToolPopout = tool.pencil || tool.highlighter || tool.shape;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,17 +90,17 @@ class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
                       horizontal: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: scheme.surface.withOpacity(0.95),
+                      color: scheme.surface.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 12,
                           offset: const Offset(2, 2),
                         ),
                       ],
                       border: Border.all(
-                        color: scheme.outlineVariant.withOpacity(0.2),
+                        color: scheme.outlineVariant.withValues(alpha: 0.2),
                         width: 1,
                       ),
                     ),
@@ -102,7 +113,9 @@ class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
                           height: 3,
                           margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
-                            color: scheme.onSurfaceVariant.withOpacity(0.3),
+                            color: scheme.onSurfaceVariant.withValues(
+                              alpha: 0.3,
+                            ),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -122,6 +135,7 @@ class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
                               selection: false,
                               magnifier: false,
                             ),
+                            showPopout: false,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -132,8 +146,11 @@ class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
                           tooltip: 'Kalem',
                           isSelected: tool.pencil || tool.highlighter,
                           onPressed: () {
-                            if (tool.pencil) {
-                              // Keep pencil active
+                            if (tool.pencil || tool.highlighter) {
+                              setState(() {
+                                _showToolPopout = !_showToolPopout;
+                                if (_showToolPopout) _isSettingsOpen = false;
+                              });
                             } else {
                               // Switch to pencil
                               _updateTool(
@@ -147,6 +164,7 @@ class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
                                   selection: false,
                                   magnifier: false,
                                 ),
+                                showPopout: true,
                               );
                             }
                           },
@@ -207,6 +225,7 @@ class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
                               eraser: false,
                               selection: false,
                             ),
+                            showPopout: false,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -225,6 +244,7 @@ class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
                               selection: false,
                               magnifier: false,
                             ),
+                            showPopout: false,
                           ),
                         ),
 
@@ -233,18 +253,28 @@ class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
                           icon: Icons.category_rounded,
                           tooltip: 'Şekiller',
                           isSelected: tool.shape,
-                          onPressed: () => _updateTool(
-                            (t) => t.copyWith(
-                              shape: true,
-                              mouse: false,
-                              grab: false,
-                              pencil: false,
-                              highlighter: false,
-                              eraser: false,
-                              selection: false,
-                              magnifier: false,
-                            ),
-                          ),
+                          onPressed: () {
+                            if (tool.shape) {
+                              setState(() {
+                                _showToolPopout = !_showToolPopout;
+                                if (_showToolPopout) _isSettingsOpen = false;
+                              });
+                            } else {
+                              _updateTool(
+                                (t) => t.copyWith(
+                                  shape: true,
+                                  mouse: false,
+                                  grab: false,
+                                  pencil: false,
+                                  highlighter: false,
+                                  eraser: false,
+                                  selection: false,
+                                  magnifier: false,
+                                ),
+                                showPopout: true,
+                              );
+                            }
+                          },
                         ),
 
                         const SizedBox(height: 12),
@@ -261,6 +291,7 @@ class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
                           onPressed: () {
                             setState(() {
                               _isSettingsOpen = !_isSettingsOpen;
+                              if (_isSettingsOpen) _showToolPopout = false;
                             });
                           },
                         ),
@@ -309,7 +340,7 @@ class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
                 const SizedBox(width: 12),
 
                 // Pen Settings Pop-out
-                if (tool.pencil || tool.highlighter)
+                if ((tool.pencil || tool.highlighter) && _showToolPopout)
                   _PopOutPanel(
                     children: [
                       const Text(
@@ -400,7 +431,7 @@ class _VerticalToolSidebarState extends State<VerticalToolSidebar> {
                   ),
 
                 // Shape Settings Pop-out
-                if (tool.shape)
+                if (tool.shape && _showToolPopout)
                   _PopOutPanel(
                     children: [
                       const Text(
@@ -547,17 +578,17 @@ class _PopOutPanel extends StatelessWidget {
       width: 250,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: scheme.surface.withOpacity(0.95),
+        color: scheme.surface.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(2, 2),
           ),
         ],
         border: Border.all(
-          color: scheme.outlineVariant.withOpacity(0.2),
+          color: scheme.outlineVariant.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -618,7 +649,7 @@ class _SidebarButton extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  color: isEnabled ? color : color.withOpacity(0.3),
+                  color: isEnabled ? color : color.withValues(alpha: 0.3),
                   size: 20,
                 ),
                 if (child != null) Positioned(top: 0, right: 0, child: child!),
@@ -644,7 +675,7 @@ class _ColorDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSelected = color.value == selectedColor.value;
+    final isSelected = color.toARGB32() == selectedColor.toARGB32();
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -658,7 +689,10 @@ class _ColorDot extends StatelessWidget {
                   color: Theme.of(context).colorScheme.primary,
                   width: 2,
                 )
-              : Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+              : Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1,
+                ),
         ),
         child: isSelected
             ? const Center(

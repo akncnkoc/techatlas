@@ -309,7 +309,7 @@ class _ColorDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSelected = color.value == selectedColor.value;
+    final isSelected = color.toARGB32() == selectedColor.toARGB32();
     return GestureDetector(
       onTap: onTap,
       child: Container(

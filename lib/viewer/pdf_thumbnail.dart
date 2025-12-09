@@ -266,15 +266,14 @@ class _PdfThumbnailState extends State<PdfThumbnail> {
 
       if (pageImage != null) {
         final image = await pageImage.createImage();
-        if (image != null) {
-          ThumbnailCache.put(widget.controller, widget.pageNumber, image);
 
-          if (mounted) {
-            setState(() {
-              _cachedImage = image;
-              _isLoading = false;
-            });
-          }
+        ThumbnailCache.put(widget.controller, widget.pageNumber, image);
+
+        if (mounted) {
+          setState(() {
+            _cachedImage = image;
+            _isLoading = false;
+          });
         }
       }
     } catch (e) {
