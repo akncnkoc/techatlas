@@ -11,7 +11,6 @@ dependencies:
   provider: ^6.1.5+1
   pdfrx: ^1.0.88
   http: "^1.2.2"
-  vector_math: "^2.1.4"
   path_provider: "^2.1.5"
   window_manager: "^0.5.1"
   inno_build: "^0.4.0"
@@ -30,6 +29,7 @@ dependencies:
   universal_io: ^2.3.1
   googleapis: ^13.2.0
   googleapis_auth: ^1.6.0
+  vector_math: ^2.1.4
 dev_dependencies:
   flutter_test:
     sdk: "flutter"

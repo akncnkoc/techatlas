@@ -92,17 +92,6 @@ class _DrawingToolbarState extends State<DrawingToolbar> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Kapat butonu
-                _ToolButton(
-                  icon: Icons.close_rounded,
-                  tooltip: 'Kapat',
-                  onPressed: widget.onClose,
-                  color: Colors.red,
-                ),
-                const SizedBox(height: 8),
-                const Divider(height: 1),
-                const SizedBox(height: 8),
-
                 // Kalem/Silgi toggle
                 _ToolButton(
                   icon: widget.isEraser ? Icons.create_rounded : Icons.edit_rounded,

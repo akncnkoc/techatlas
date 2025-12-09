@@ -116,15 +116,17 @@ class DrawingCanvasState extends State<DrawingCanvas> {
       onPanStart: _onPanStart,
       onPanUpdate: _onPanUpdate,
       onPanEnd: _onPanEnd,
-      child: CustomPaint(
-        painter: DrawingPainter(
-          strokes: _strokes,
-          currentPoints: _currentPoints,
-          currentColor: widget.color,
-          currentWidth: widget.strokeWidth,
-          isEraser: widget.isEraser,
+      child: RepaintBoundary(
+        child: CustomPaint(
+          painter: DrawingPainter(
+            strokes: _strokes,
+            currentPoints: _currentPoints,
+            currentColor: widget.color,
+            currentWidth: widget.strokeWidth,
+            isEraser: widget.isEraser,
+          ),
+          size: Size.infinite,
         ),
-        size: Size.infinite,
       ),
     );
   }
