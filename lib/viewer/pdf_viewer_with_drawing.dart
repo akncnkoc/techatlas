@@ -16,9 +16,9 @@ import 'page_time_tracker.dart';
 import 'magnifier_overlay.dart';
 import 'magnified_content_overlay.dart';
 import 'drawing_provider.dart';
-import 'package:akilli_tahta_proje_demo/viewer/solution_panel.dart';
+import 'package:techatlas/viewer/solution_panel.dart';
 
-import 'package:akilli_tahta_proje_demo/viewer/widgets/drawable_content_widget.dart';
+import 'package:techatlas/viewer/widgets/drawable_content_widget.dart';
 import '../models/crop_data.dart';
 
 import 'dart:math' as math;

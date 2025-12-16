@@ -2,7 +2,7 @@
 # Bu script ana uygulamayı GitHub Release için hazırlar
 
 param(
-    [string]$OutputFile = "elif_yayinlari.zip"
+    [string]$OutputFile = "techatlas.zip"
 )
 
 Write-Host "=== Ana Uygulama Paketleniyor ===" -ForegroundColor Cyan
@@ -64,4 +64,3 @@ Write-Host ""
 Write-Host "Sonraki adımlar:" -ForegroundColor Yellow
 Write-Host "1. Bu ZIP'i GitHub Release olarak yükleyin" -ForegroundColor White
 Write-Host "2. Launcher'daki URL'yi güncelleyin" -ForegroundColor White
-Write-Host "3. Launcher'ı build edin: cd elif_yayinlari_launcher && flutter build windows --release" -ForegroundColor White

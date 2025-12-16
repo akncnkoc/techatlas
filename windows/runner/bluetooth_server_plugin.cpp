@@ -29,7 +29,7 @@ BluetoothServerPlugin::BluetoothServerPlugin(
 
   // Create method channel
   method_channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-      registrar->messenger(), "com.elif.bluetooth_server",
+      registrar->messenger(), "com.techatlas.bluetooth_server",
       &flutter::StandardMethodCodec::GetInstance());
 
   method_channel_->SetMethodCallHandler(
@@ -39,7 +39,7 @@ BluetoothServerPlugin::BluetoothServerPlugin(
 
   // Create event channel
   event_channel_ = std::make_unique<flutter::EventChannel<flutter::EncodableValue>>(
-      registrar->messenger(), "com.elif.bluetooth_server/events",
+      registrar->messenger(), "com.techatlas.bluetooth_server/events",
       &flutter::StandardMethodCodec::GetInstance());
 
   auto handler = std::make_unique<flutter::StreamHandlerFunctions<flutter::EncodableValue>>(

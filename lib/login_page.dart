@@ -66,7 +66,7 @@ class _LoginPageState extends State<LoginPage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                     Text(
-                      'Akilli Tahta Proje Demo',
+                      'Tech Atlas',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 22,

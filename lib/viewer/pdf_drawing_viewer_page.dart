@@ -21,7 +21,7 @@ import 'components/analysis_result_dialog.dart';
 // Services
 import 'services/image_capture_service.dart';
 
-import 'package:akilli_tahta_proje_demo/viewer/drawing_provider.dart';
+import 'package:techatlas/viewer/drawing_provider.dart';
 import 'package:provider/provider.dart';
 
 class PdfDrawingViewerPage extends StatefulWidget {

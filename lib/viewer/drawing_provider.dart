@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:akilli_tahta_proje_demo/viewer/stroke.dart';
-import 'package:akilli_tahta_proje_demo/viewer/tool_state.dart';
-import 'package:akilli_tahta_proje_demo/viewer/drawing_history.dart';
-import 'package:akilli_tahta_proje_demo/core/utils/matrix_utils.dart'
+import 'package:techatlas/viewer/stroke.dart';
+import 'package:techatlas/viewer/tool_state.dart';
+import 'package:techatlas/viewer/drawing_history.dart';
+import 'package:techatlas/core/utils/matrix_utils.dart'
     as custom_matrix;
 import '../core/constants/app_constants.dart';
 import 'dart:math' show cos, sin;

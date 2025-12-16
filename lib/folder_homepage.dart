@@ -12,6 +12,9 @@ import 'package:path_provider/path_provider.dart';
 import './google_drive/google_drive_service.dart';
 import './google_drive/models.dart' as gdrive;
 
+// ADDED for creating dummy items for direct access
+import './google_drive/models.dart' show DriveItem;
+
 import './models/crop_data.dart';
 import './models/downloaded_book.dart';
 import './models/app_models.dart';
@@ -21,6 +24,10 @@ import 'viewer/pdf_drawing_viewer_page.dart';
 
 // Drawing Pen Launcher (Fatih Kalem tarzı)
 import 'services/drawing_pen_launcher.dart';
+import 'access_codes.dart';
+import './services/recent_file_service.dart';
+import './models/recent_file.dart';
+
 
 class FolderHomePage extends StatefulWidget {
   const FolderHomePage({super.key});
@@ -32,6 +39,9 @@ class FolderHomePage extends StatefulWidget {
 class _FolderHomePageState extends State<FolderHomePage> {
   GoogleDriveService? googleDriveService;
   final BookStorageService _bookStorageService = BookStorageService();
+  final RecentFileService _recentFileService = RecentFileService();
+  
+  List<RecentFile> recentFiles = [];
   List<gdrive.DriveItem> driveItems =
       []; // folders + .book files (changed from driveBooks)
   String? currentDriveFolderId; // current Drive folder (null = root)
@@ -70,6 +80,7 @@ class _FolderHomePageState extends State<FolderHomePage> {
   void initState() {
     super.initState();
     _loadDownloadedBooks();
+    _loadRecentFiles();
     _startDrawingPenMonitoring();
     // Don't automatically load anything - let user choose storage type
   }
@@ -78,6 +89,24 @@ class _FolderHomePageState extends State<FolderHomePage> {
   void dispose() {
     _drawingPenMonitor?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadRecentFiles() async {
+    final files = await _recentFileService.getRecentFiles();
+    setState(() {
+      recentFiles = files;
+    });
+  }
+
+  Future<void> _addRecentFile(String path, String name) async {
+    final file = RecentFile(path: path, name: name, addedAt: DateTime.now());
+    await _recentFileService.addRecentFile(file);
+    await _loadRecentFiles();
+  }
+
+  Future<void> _removeRecentFile(String path) async {
+    await _recentFileService.removeRecentFile(path);
+    await _loadRecentFiles();
   }
 
   void _startDrawingPenMonitoring() {
@@ -127,6 +156,102 @@ class _FolderHomePageState extends State<FolderHomePage> {
   }
 
   Future<void> _selectGoogleDriveStorage() async {
+    // Show dialog to ask for code
+    final codeController = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        title: const Text('Erişim Kodu'),
+        content: TextField(
+          controller: codeController,
+          decoration: const InputDecoration(
+            hintText: 'Lütfen erişim kodunuzu giriniz',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.vpn_key),
+          ),
+          autofocus: true,
+          onSubmitted: (value) => Navigator.pop(context, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, codeController.text),
+            child: const Text('Giriş'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null || result.trim().isEmpty) return;
+
+    // Show loading while verifying
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final configs = await AccessCodeService.verifyCode(result);
+    
+    // Close loading dialog
+    if (mounted) Navigator.pop(context);
+
+    if (configs.isEmpty) {
+      _showError('Geçersiz erişim kodu! Lütfen tekrar deneyiniz.');
+      return;
+    }
+
+    // Determine which config to use
+    ResourceConfig? selectedConfig;
+
+    if (configs.length == 1) {
+      selectedConfig = configs.first;
+    } else {
+      // Multiple resources found, let user choose
+      selectedConfig = await showDialog<ResourceConfig>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('Erişim Kaynağı Seçin'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: configs.length,
+              itemBuilder: (context, index) {
+                final cfg = configs[index];
+                return ListTile(
+                  leading: Icon(
+                    cfg.type == ResourceType.folder
+                        ? Icons.folder
+                        : Icons.description,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  title: Text(cfg.name),
+                  subtitle: Text(
+                    cfg.type == ResourceType.folder ? 'Klasör' : 'Dosya',
+                  ),
+                  onTap: () => Navigator.pop(context, cfg),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('İptal'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (selectedConfig == null) return; // User cancelled selection
+
     setState(() => isLoading = true);
 
     try {
@@ -134,19 +259,55 @@ class _FolderHomePageState extends State<FolderHomePage> {
       // Initialize service (which will load service account credentials)
       await googleDriveService!.initialize();
 
-      // Load root folder after successful initialization
-      const rootFolderId =
-          "1U8mbCEY2JzdDngZxL7RyxID5eh8MW2yR"; // Main folder ID
-      await _loadGoogleDriveFolder(rootFolderId);
-      setState(() {
-        showStorageSelection = false;
-        useGoogleDrive = true;
-        showMyBooks = false;
-        isLoading = false;
-      });
+      if (selectedConfig.type == ResourceType.file) {
+        // --- FILE ACCESS MODE ---
+        // Directly open the book without showing folder browser
+        
+        setState(() {
+          // Hide storage selection but don't set useGoogleDrive=true yet 
+          // because we are just opening a file, not browsing drive
+          showStorageSelection = false;
+          // We can set these to false to show the PDF viewer
+          useGoogleDrive = false; 
+          showMyBooks = false; 
+          isLoading = false;
+        });
+
+        // Create a dummy items object since we have the ID to download
+        final dummyItem = DriveItem(
+          id: selectedConfig.id,
+          name: selectedConfig.name.endsWith('.book') ? selectedConfig.name : '${selectedConfig.name}.book', // Ensure extension for logic
+          mimeType: 'application/zip', // .book is a zip
+          isFolder: false,
+        );
+
+        await _openBookFromGoogleDrive(dummyItem);
+        
+      } else {
+        // --- FOLDER ACCESS MODE ---
+        // Configure breadcrumbs for restricted view
+        setState(() {
+          driveBreadcrumbs = [
+            BreadcrumbItem(name: selectedConfig!.name, path: selectedConfig.id),
+          ];
+        });
+
+        // Load specific folder
+        await _loadGoogleDriveFolder(selectedConfig.id);
+        
+        setState(() {
+          showStorageSelection = false;
+          useGoogleDrive = true;
+          showMyBooks = false;
+          isLoading = false;
+        });
+      }
+
     } catch (e) {
       setState(() => isLoading = false);
-      _showError('Google Drive authentication error: $e');
+      _showError('Hata: $e');
+      // Show selection again on error
+      setState(() => showStorageSelection = true);
     }
   }
 
@@ -226,6 +387,37 @@ class _FolderHomePageState extends State<FolderHomePage> {
 
         // Check if it's a book file
         if (fileName.toLowerCase().endsWith('.book')) {
+          // Check if already recent or ask
+          final isRecent = await _recentFileService.isFileRecent(filePath);
+          if (!isRecent) {
+             // Ask user
+             final shouldAdd = await showDialog<bool>(
+               context: context,
+               builder: (context) => AlertDialog(
+                 title: const Text('Kısayol Ekle'),
+                 content: const Text(
+                     'Bu kitabı "Son Açılanlar" listesine eklemek ister misiniz? Böylece dosyayı tekrar aramak zorunda kalmazsınız.'),
+                 actions: [
+                   TextButton(
+                     onPressed: () => Navigator.pop(context, false),
+                     child: const Text('Hayır'),
+                   ),
+                   FilledButton(
+                     onPressed: () => Navigator.pop(context, true),
+                     child: const Text('Evet'),
+                   ),
+                 ],
+               ),
+             );
+
+             if (shouldAdd == true) {
+               await _addRecentFile(filePath, fileName);
+             }
+          } else {
+             // Already in list, just update timestamp/order
+             await _addRecentFile(filePath, fileName);
+          }
+          
           await _handleZipFile(filePath, fileName);
         } else {
           // It's a PDF file
@@ -1726,6 +1918,7 @@ class _FolderHomePageState extends State<FolderHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            _buildRecentFilesList(),
             // Premium header icon with gradient
             Container(
               padding: const EdgeInsets.all(20),
@@ -1832,6 +2025,145 @@ class _FolderHomePageState extends State<FolderHomePage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRecentFilesList() {
+    if (recentFiles.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.history_rounded,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Son Açılanlar',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 110,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: recentFiles.length,
+            itemBuilder: (context, index) {
+              final file = recentFiles[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Tooltip(
+                  message: file.path,
+                  child: InkWell(
+                    onTap: () async {
+                      // Validate if file exists
+                      if (await File(file.path).exists()) {
+                        _handleZipFile(file.path, file.name);
+                      } else {
+                        // Ask to remove if not found
+                        final remove = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Dosya Bulunamadı'),
+                            content: Text(
+                                '"${file.name}" dosya yolunda bulunamadı. Listeden kaldırılsın mı?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Hayır'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Evet',
+                                    style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (remove == true) {
+                          _removeRecentFile(file.path);
+                        }
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      width: 140,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.book_rounded,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            file.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${file.addedAt.day}.${file.addedAt.month}.${file.addedAt.year}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Theme.of(context).disabledColor,
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
+        Divider(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
+        const SizedBox(height: 24),
+      ],
     );
   }
 
@@ -1946,7 +2278,7 @@ class _FolderHomePageState extends State<FolderHomePage> {
     if (showStorageSelection) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Akilli Tahta Proje Demo'),
+          title: const Text('TechAtlas'),
           actions: [
             // Kalem Modu Butonu (Fatih Kalem tarzı)
             IconButton(

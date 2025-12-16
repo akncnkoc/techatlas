@@ -78,7 +78,7 @@ void main(List<String> args) async {
     }
 
     print('🎯 Running app...');
-    runApp(const AkilliTahtaProjeDemo());
+    runApp(const TechAtlas());
     print('✅ App launched successfully');
   } catch (e, stackTrace) {
     print('❌ FATAL ERROR in main(): $e');
@@ -87,8 +87,8 @@ void main(List<String> args) async {
   }
 }
 
-class AkilliTahtaProjeDemo extends StatelessWidget {
-  const AkilliTahtaProjeDemo({super.key});
+class TechAtlas extends StatelessWidget {
+  const TechAtlas({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -3,9 +3,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:archive/archive.dart';
-import 'package:akilli_tahta_proje_demo/models/crop_data.dart';
+import 'package:techatlas/models/crop_data.dart';
 
-import 'package:akilli_tahta_proje_demo/viewer/widgets/solution_detail_dialog.dart';
+import 'package:techatlas/viewer/widgets/solution_detail_dialog.dart';
 
 class SolutionPanel extends StatefulWidget {
   final CropItem crop;

@@ -11,7 +11,7 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Text.RegularExpressions;
 
-namespace ElifYayinlariInstaller
+namespace TechAtlasInstaller
 {
     public class InstallerForm : Form
     {
@@ -21,10 +21,10 @@ namespace ElifYayinlariInstaller
         
         // Configuration
         private const string REPO_OWNER = "akncnkoc";
-        private const string REPO_NAME = "elif_yayinlari";
-        private const string ASSET_NAME = "elif_yayinlari.zip";
-        private const string APP_NAME = "Elif Yayınları";
-        private const string EXECUTABLE_NAME = "akilli_tahta_proje_demo.exe";
+        private const string REPO_NAME = "techatlas";
+        private const string ASSET_NAME = "techatlas.zip";
+        private const string APP_NAME = "TechAtlas";
+        private const string EXECUTABLE_NAME = "techatlas.exe";
         
         // Paths
         private string installDir;
@@ -40,7 +40,7 @@ namespace ElifYayinlariInstaller
         private void InitializePaths()
         {
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            installDir = Path.Combine(localAppData, "ElifYayinlari");
+            installDir = Path.Combine(localAppData, "TechAtlas");
             tempZipPath = Path.Combine(Path.GetTempPath(), ASSET_NAME);
         }
 
@@ -203,7 +203,7 @@ namespace ElifYayinlariInstaller
             {
                 string apiUrl = String.Format("https://api.github.com/repos/{0}/{1}/releases/latest", REPO_OWNER, REPO_NAME);
                 HttpWebRequest request = (HttpWebRequest)WebRequest.Create(apiUrl);
-                request.UserAgent = "ElifYayinlariInstaller";
+                request.UserAgent = "TechAtlasInstaller";
                 
                 using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
                 using (StreamReader reader = new StreamReader(response.GetResponseStream()))
@@ -286,10 +286,10 @@ namespace ElifYayinlariInstaller
             
             // Primary Shortcut
             CreateShortcut(
-                Path.Combine(desktopDir, "Elif Yayinlari.lnk"),
+                Path.Combine(desktopDir, "TechAtlas.lnk"),
                 Path.Combine(installDir, EXECUTABLE_NAME),
                 installDir,
-                "Elif Yayınları"
+                "Tech Atlas"
             );
 
             // Drawing Pen Shortcut

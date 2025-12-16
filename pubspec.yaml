@@ -1,4 +1,4 @@
-name: "akilli_tahta_proje_demo"
+name: "techatlas"
 description: "A new Flutter project."
 publish_to: "none"
 version: "1.0.0+1"
@@ -43,10 +43,10 @@ flutter:
     - service_account.json
 
 msix_config:
-  display_name: Elif Yayınları
-  publisher_display_name: Elif Yayınları
-  identity_name: com.elif.yayinlari
+  display_name: TechAtlas
+  publisher_display_name: TechAtlas
+  identity_name: com.techatlas.app
   msix_version: 1.0.0.0
   logo_path: windows\runner\resources\app_icon.ico
   capabilities: internetClient, privateNetworkClientServer
-  publisher: CN=Elif Yayınları
+  publisher: CN=TechAtlas

@@ -1,4 +1,4 @@
-import 'package:akilli_tahta_proje_demo/viewer/drawing_provider.dart';
+import 'package:techatlas/viewer/drawing_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:icons_flutter/icons_flutter.dart';
 import 'package:pdfrx/pdfrx.dart';

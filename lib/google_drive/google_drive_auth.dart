@@ -58,10 +58,18 @@ class GoogleDriveAuth {
       // Fix for common Private Key formatting issues
       if (jsonMap.containsKey('private_key')) {
         String key = jsonMap['private_key'] as String;
-        if (!key.contains('\n') && key.contains(r'\n')) {
+        if (key.contains(r'\n')) {
           debugPrint('🔧 Fixing escaped newlines in private key...');
-          jsonMap['private_key'] = key.replaceAll(r'\n', '\n');
+          key = key.replaceAll(r'\n', '\n');
         }
+        
+        // Remove any carriage returns which might cause issues on Windows
+        if (key.contains('\r')) {
+           debugPrint('🔧 Removing carriage returns from private key...');
+           key = key.replaceAll('\r', '');
+        }
+        
+        jsonMap['private_key'] = key;
       }
 
       final credentials = auth.ServiceAccountCredentials.fromJson(jsonMap);

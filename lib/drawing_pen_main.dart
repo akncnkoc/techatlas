@@ -18,10 +18,6 @@ import 'overlay_drawing/modes/grid_mode.dart';
 import 'overlay_drawing/modes/shapes_3d_mode.dart';
 import 'services/bluetooth_input_handler.dart';
 
-/// Fatih Kalem benzeri - Sistem genelinde çalışan çizim uygulaması
-///
-/// Kullanım: flutter run -t lib/drawing_pen_main.dart
-/// veya: akilli_tahta_proje_demo.exe --drawing-pen
 @pragma('vm:entry-point')
 void drawingPenMain() {
   main();

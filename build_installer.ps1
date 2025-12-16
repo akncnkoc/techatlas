@@ -1,4 +1,3 @@
-# Build Script for Elif Yayınları Installer Bootstrapper
 
 # Find latest C# compiler
 $cscPath = Join-Path $env:windir "Microsoft.NET\Framework64\v4.0.30319\csc.exe"
@@ -9,7 +8,7 @@ if (-not (Test-Path $cscPath)) {
 }
 
 $sourceFile = "Installer_Bootstrap.cs"
-$outputFile = "ElifYayinlari_Setup.exe"
+$outputFile = "TechAtlas_Setup.exe"
 
 Write-Host "Compiling $sourceFile..." -ForegroundColor Cyan
 
