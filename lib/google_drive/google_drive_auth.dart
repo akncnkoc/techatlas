@@ -40,7 +40,7 @@ class GoogleDriveAuth {
           
           if (await serviceAccountFile.exists()) {
             debugPrint('📁 Loading service_account.json from: ${serviceAccountFile.path}');
-            credentialsJson = await serviceAccountFile.readAsString();
+            credentialsJson = await serviceAccountFile.readAsString(encoding: utf8);
           } else {
             // Fallback to assets
             debugPrint('⚠️ service_account.json not found in executable directory, trying assets...');
@@ -53,9 +53,18 @@ class GoogleDriveAuth {
         }
       }
       
-      final credentials = auth.ServiceAccountCredentials.fromJson(
-        json.decode(credentialsJson),
-      );
+      final Map<String, dynamic> jsonMap = json.decode(credentialsJson);
+      
+      // Fix for common Private Key formatting issues
+      if (jsonMap.containsKey('private_key')) {
+        String key = jsonMap['private_key'] as String;
+        if (!key.contains('\n') && key.contains(r'\n')) {
+          debugPrint('🔧 Fixing escaped newlines in private key...');
+          jsonMap['private_key'] = key.replaceAll(r'\n', '\n');
+        }
+      }
+
+      final credentials = auth.ServiceAccountCredentials.fromJson(jsonMap);
 
       debugPrint('✅ Service account email: ${credentials.email}');
 
