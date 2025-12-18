@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:screen_retriever/screen_retriever.dart';
 import 'login_page.dart';
 import 'splash_screen.dart';
 import 'folder_homepage.dart';
@@ -68,6 +67,8 @@ void main(List<String> args) async {
           await windowManager.setHasShadow(false);
           await windowManager.center();
           await windowManager.show();
+          await windowManager.focus();
+          await windowManager.focus();
           await windowManager.focus();
           print('✅ Window shown and focused');
         });

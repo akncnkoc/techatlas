@@ -8,6 +8,14 @@ param(
 Write-Host "=== Ana Uygulama Paketleniyor ===" -ForegroundColor Cyan
 Write-Host ""
 
+# 0. Installer'ı Build Et
+Write-Host "Installer Build Ediliyor..." -ForegroundColor Cyan
+.\build_installer.ps1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "HATA: Installer build edilemedi!" -ForegroundColor Red
+    exit 1
+}
+
 $sourceDir = "build\windows\x64\runner\Release"
 
 if (!(Test-Path $sourceDir)) {
@@ -52,11 +60,15 @@ Remove-Item $tempDir -Recurse -Force
 
 # Boyut bilgisi
 $zipSize = (Get-Item $OutputFile).Length / 1MB
+$installerName = "TechAtlas_Setup.exe"
+
 Write-Host ""
 Write-Host "=== TAMAMLANDI ===" -ForegroundColor Green
 Write-Host "ZIP dosyası: $OutputFile" -ForegroundColor Cyan
+Write-Host "Installer:   $installerName" -ForegroundColor Cyan
 Write-Host "Boyut: $([math]::Round($zipSize, 2)) MB" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Sonraki adımlar:" -ForegroundColor Yellow
 Write-Host "1. Bu ZIP'i GitHub Release olarak yükleyin" -ForegroundColor White
-Write-Host "2. Launcher'daki URL'yi güncelleyin" -ForegroundColor White
+Write-Host "2. Installer'ı (TechAtlas_Setup.exe) da GitHub Release'e yükleyin! (GÜNCELLEME İÇİN GEREKLİ)" -ForegroundColor Red
+Write-Host "3. Launcher'daki URL'yi güncelleyin" -ForegroundColor White

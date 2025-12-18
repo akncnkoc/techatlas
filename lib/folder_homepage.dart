@@ -1,7 +1,9 @@
+import 'package:techatlas/components/folder_home/google_drive_browser.dart';
+import 'package:techatlas/components/folder_home/my_books_view.dart';
+import 'package:techatlas/components/folder_home/storage_selection_view.dart';
 import 'dart:io';
-import 'dart:convert';
 import 'dart:async';
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
@@ -28,6 +30,8 @@ import 'access_codes.dart';
 import './services/recent_file_service.dart';
 import './models/recent_file.dart';
 import './widgets/keyboard_text_field.dart';
+import 'services/update_service.dart'; // [NEW]
+import 'widgets/update_dialog.dart'; // [NEW]
 
 class FolderHomePage extends StatefulWidget {
   const FolderHomePage({super.key});
@@ -87,6 +91,37 @@ class _FolderHomePageState extends State<FolderHomePage> {
     _startDrawingPenMonitoring();
     _startKeyboardDetection();
     // Don't automatically load anything - let user choose storage type
+
+    // [NEW] Check for updates after UI build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdates();
+    });
+  }
+
+  Future<void> _checkForUpdates() async {
+    if (kIsWeb) return; // No updates for web
+
+    try {
+      print('🔄 Checking for updates (FolderHomePage)...');
+      final updateService = UpdateService();
+      final updateInfo = await updateService.checkForUpdates();
+
+      if (updateInfo != null) {
+        print('✨ Update available: ${updateInfo.version}');
+
+        if (!mounted) return;
+
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => UpdateDialog(updateInfo: updateInfo),
+        );
+      } else {
+        print('✅ App is up to date');
+      }
+    } catch (e) {
+      print('❌ Update check failed: $e');
+    }
   }
 
   @override
@@ -299,7 +334,35 @@ class _FolderHomePageState extends State<FolderHomePage> {
     if (mounted) Navigator.pop(context);
 
     if (configs.isEmpty) {
-      _showError('Geçersiz erişim kodu! Lütfen tekrar deneyiniz.');
+      _showError('Geçersiz erişim kodu! Test moduna geçiliyor...');
+      // FALLBACK: Load Main Folder
+      try {
+        if (googleDriveService == null) {
+          googleDriveService = GoogleDriveService();
+          await googleDriveService!.initialize();
+        }
+
+        setState(() {
+          driveBreadcrumbs = [
+            BreadcrumbItem(
+              name: 'Ana Klasör (Test)',
+              path: '1U8mbCEY2JzdDngZxL7RyxID5eh8MW2yR',
+            ),
+          ];
+        });
+
+        await _loadGoogleDriveFolder('1U8mbCEY2JzdDngZxL7RyxID5eh8MW2yR');
+
+        setState(() {
+          showStorageSelection = false;
+          useGoogleDrive = true;
+          showMyBooks = false;
+          isLoading = false;
+        });
+      } catch (fallbackError) {
+        _showError('Test modu da başlatılamadı: $fallbackError');
+        setState(() => showStorageSelection = true);
+      }
       return;
     }
 
@@ -869,107 +932,6 @@ class _FolderHomePageState extends State<FolderHomePage> {
     });
   }
 
-  Widget _buildDriveBreadcrumbs() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Theme.of(
-                    context,
-                  ).colorScheme.secondary.withValues(alpha: 0.15),
-                  Theme.of(
-                    context,
-                  ).colorScheme.secondary.withValues(alpha: 0.08),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.cloud_rounded,
-              size: 18,
-              color: Theme.of(context).colorScheme.secondary,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (int i = 0; i < driveBreadcrumbs.length; i++) ...[
-                    InkWell(
-                      onTap: () => _navigateToDriveBreadcrumb(i),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: i == driveBreadcrumbs.length - 1
-                            ? BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Theme.of(context).colorScheme.secondary
-                                        .withValues(alpha: 0.12),
-                                    Theme.of(context).colorScheme.secondary
-                                        .withValues(alpha: 0.06),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(6),
-                              )
-                            : null,
-                        child: Text(
-                          driveBreadcrumbs[i].name,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: i == driveBreadcrumbs.length - 1
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            color: i == driveBreadcrumbs.length - 1
-                                ? Theme.of(context).colorScheme.onSurface
-                                : Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (i < driveBreadcrumbs.length - 1)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
-                        child: Icon(
-                          Icons.chevron_right_rounded,
-                          size: 16,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                        ),
-                      ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildTabBar() {
     return Container(
       height: 48,
@@ -1205,7 +1167,12 @@ class _FolderHomePageState extends State<FolderHomePage> {
     }
 
     if (showMyBooks) {
-      return _buildMyBooksView();
+      return MyBooksView(
+        downloadedBooks: downloadedBooks,
+        onBookTap: _openDownloadedBook,
+        onDeleteBook: _deleteBook,
+        onGoToGoogleDrive: _selectGoogleDriveStorage,
+      );
     }
 
     if (!useGoogleDrive) {
@@ -1301,546 +1268,24 @@ class _FolderHomePageState extends State<FolderHomePage> {
 
     // Google Drive mode
     if (useGoogleDrive) {
-      if (driveItems.isEmpty) {
-        return Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 420),
-            margin: const EdgeInsets.all(24),
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Theme.of(context).colorScheme.surfaceContainerHighest,
-                  Theme.of(context).colorScheme.surface,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).colorScheme.tertiaryContainer,
-                        Theme.of(
-                          context,
-                        ).colorScheme.tertiaryContainer.withValues(alpha: 0.6),
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.folder_off_rounded,
-                    size: 48,
-                    color: Theme.of(context).colorScheme.tertiary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Bu klasör boş',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Klasör veya .book dosyası bulunamadı',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: () => _loadGoogleDriveFolder(currentDriveFolderId),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text(
-                    'Yenile',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-
-      // Show Google Drive items (folders + books) in premium grid
-      return GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 8,
-          childAspectRatio: 1,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-        ),
-        itemCount: driveItems.length,
-        itemBuilder: (context, index) {
-          final item = driveItems[index];
-          final isFolder = item.isFolder;
-
-          return MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () {
-                if (isFolder) {
-                  _navigateToDriveFolder(item.id, item.name);
-                } else {
-                  _openBookFromGoogleDrive(item);
-                }
-              },
-              child: Card(
-                elevation: 2,
-                shadowColor: isFolder
-                    ? Theme.of(
-                        context,
-                      ).colorScheme.tertiary.withValues(alpha: 0.15)
-                    : Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Stack(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        gradient: LinearGradient(
-                          colors: [
-                            Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHighest,
-                            Theme.of(context).colorScheme.surface,
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          // Icon container with gradient
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: isFolder
-                                      ? [
-                                          Theme.of(context).colorScheme.tertiary
-                                              .withValues(alpha: 0.1),
-                                          Theme.of(context).colorScheme.tertiary
-                                              .withValues(alpha: 0.05),
-                                        ]
-                                      : [
-                                          Theme.of(context).colorScheme.primary
-                                              .withValues(alpha: 0.1),
-                                          Theme.of(context)
-                                              .colorScheme
-                                              .secondary
-                                              .withValues(alpha: 0.05),
-                                        ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(14),
-                                  topRight: Radius.circular(14),
-                                ),
-                              ),
-                              child: Stack(
-                                children: [
-                                  // Main icon (folder or book)
-                                  Center(
-                                    child: item.thumbnailLink != null
-                                        ? ClipRRect(
-                                            borderRadius:
-                                                const BorderRadius.vertical(
-                                                  top: Radius.circular(14),
-                                                ),
-                                            child: Image.network(
-                                              item.thumbnailLink!,
-                                              fit: BoxFit.cover,
-                                              width: double.infinity,
-                                              height: double.infinity,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                    return Icon(
-                                                      isFolder
-                                                          ? Icons.folder_rounded
-                                                          : Icons
-                                                                .menu_book_rounded,
-                                                      size: 40,
-                                                      color: isFolder
-                                                          ? Theme.of(context)
-                                                                .colorScheme
-                                                                .tertiary
-                                                          : Theme.of(context)
-                                                                .colorScheme
-                                                                .primary,
-                                                    );
-                                                  },
-                                            ),
-                                          )
-                                        : Icon(
-                                            isFolder
-                                                ? Icons.folder_rounded
-                                                : Icons.menu_book_rounded,
-                                            size: 40,
-                                            color: isFolder
-                                                ? Theme.of(
-                                                    context,
-                                                  ).colorScheme.tertiary
-                                                : Theme.of(
-                                                    context,
-                                                  ).colorScheme.primary,
-                                          ),
-                                  ),
-                                  // Small badge
-                                  if (!isFolder)
-                                    Positioned(
-                                      top: 8,
-                                      right: 8,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(4),
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.secondary,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .secondary
-                                                  .withValues(alpha: 0.3),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Icon(
-                                          Icons.cloud_rounded,
-                                          size: 12,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // Item name and actions
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            width: double.infinity,
-                            child: Column(
-                              children: [
-                                Text(
-                                  item.name,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
-                                    letterSpacing: -0.2,
-                                    height: 1.2,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 2,
-                                  textAlign: TextAlign.center,
-                                ),
-                                if (!isFolder) ...[
-                                  const SizedBox(height: 8),
-                                  SizedBox(
-                                    height: 28,
-                                    width: double.infinity,
-                                    child:
-                                        downloadedBooks.any(
-                                          (b) => b.id == item.id,
-                                        )
-                                        ? FilledButton.icon(
-                                            onPressed:
-                                                null, // Disabled if downloaded
-                                            icon: const Icon(
-                                              Icons.check_rounded,
-                                              size: 14,
-                                            ),
-                                            label: const Text(
-                                              'İndirildi',
-                                              style: TextStyle(fontSize: 10),
-                                            ),
-                                            style: FilledButton.styleFrom(
-                                              padding: EdgeInsets.zero,
-                                              backgroundColor: Colors.green,
-                                              disabledBackgroundColor: Colors
-                                                  .green
-                                                  .withValues(alpha: 0.5),
-                                              disabledForegroundColor:
-                                                  Colors.white,
-                                            ),
-                                          )
-                                        : OutlinedButton.icon(
-                                            onPressed: () =>
-                                                _startDownloadOrQueue(item),
-                                            icon: const Icon(
-                                              Icons.download_rounded,
-                                              size: 14,
-                                            ),
-                                            label: const Text(
-                                              'İndir',
-                                              style: TextStyle(fontSize: 10),
-                                            ),
-                                            style: OutlinedButton.styleFrom(
-                                              padding: EdgeInsets.zero,
-                                              side: BorderSide(
-                                                color: Theme.of(
-                                                  context,
-                                                ).colorScheme.primary,
-                                              ),
-                                            ),
-                                          ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Download progress overlay
-                    if (!isFolder && _downloadingBooks.contains(item.id))
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.75),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 60,
-                                height: 60,
-                                child: CircularProgressIndicator(
-                                  value: _downloadProgress[item.id] ?? 0.0,
-                                  strokeWidth: 4,
-                                  backgroundColor: Colors.white.withValues(
-                                    alpha: 0.2,
-                                  ),
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                '%${((_downloadProgress[item.id] ?? 0.0) * 100).toStringAsFixed(0)}',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'İndiriliyor...',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              // Cancel button
-                              OutlinedButton.icon(
-                                onPressed: () => _cancelDownload(item.id),
-                                icon: const Icon(Icons.close, size: 16),
-                                label: const Text('İptal'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: const BorderSide(color: Colors.white),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
+      return GoogleDriveBrowser(
+        items: driveItems,
+        breadcrumbs: driveBreadcrumbs,
+        onFolderTap: _navigateToDriveFolder,
+        onBookTap: _openBookFromGoogleDrive,
+        onBreadcrumbTap: _navigateToDriveBreadcrumb,
+        onRefresh: () => _loadGoogleDriveFolder(currentDriveFolderId),
+        downloadingBooks: _downloadingBooks,
+        downloadProgress: _downloadProgress,
+        onDownloadTap: _startDownloadOrQueue,
+        onCancelDownload: _cancelDownload,
+        downloadedBooks: downloadedBooks,
       );
     }
 
     // Default fallback - should never reach here
     return const Center(
       child: Text('Please select a storage option from the menu'),
-    );
-  }
-
-  Widget _buildMyBooksView() {
-    if (downloadedBooks.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.library_books_outlined,
-              size: 64,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Henüz indirilmiş kitap yok',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Google Drive\'dan kitap indirebilirsiniz',
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _selectGoogleDriveStorage,
-              icon: const Icon(Icons.cloud_download_rounded),
-              label: const Text('Google Drive\'a Git'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 6,
-        childAspectRatio: 0.75,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: downloadedBooks.length,
-      itemBuilder: (context, index) {
-        final book = downloadedBooks[index];
-        return Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: InkWell(
-            onTap: () => _openDownloadedBook(book),
-            borderRadius: BorderRadius.circular(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.1),
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
-                      ),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        Icons.menu_book_rounded,
-                        size: 48,
-                        color: Colors.orange,
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        book.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${(book.size / 1024 / 1024).toStringAsFixed(1)} MB',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          InkWell(
-                            onTap: () => _deleteBook(book),
-                            borderRadius: BorderRadius.circular(20),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: Icon(
-                                Icons.delete_outline_rounded,
-                                size: 18,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -2055,375 +1500,6 @@ class _FolderHomePageState extends State<FolderHomePage> {
     }
   }
 
-  Widget _buildStorageSelectionScreen() {
-    return Center(
-      child: SingleChildScrollView(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 450),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildRecentFilesList(),
-              // Premium header icon with gradient
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(context).colorScheme.primaryFixed,
-                      Theme.of(context).colorScheme.secondaryFixed,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Image.asset("assets/logo.png", width: 128, height: 128),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Dosya Kaynağı Seçin',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'PDF dosyalarınızı nereden açmak istersiniz?',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Local Storage Card - Premium
-              _buildPremiumStorageCard(
-                icon: Icons.computer_rounded,
-                title: 'Yerel Dosyalar',
-                subtitle: 'Bilgisayarınızdan dosya seçin',
-                gradientColors: [
-                  Theme.of(context).colorScheme.primary,
-                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
-                ],
-                onTap: _selectLocalStorage,
-              ),
-
-              const SizedBox(height: 12),
-
-              // Google Drive Card - Premium
-              _buildPremiumStorageCard(
-                icon: Icons.cloud_rounded,
-                title: 'Google Drive',
-                subtitle: '.book dosyalarını görüntüle',
-                gradientColors: [
-                  Theme.of(context).colorScheme.secondary,
-                  Theme.of(
-                    context,
-                  ).colorScheme.secondary.withValues(alpha: 0.7),
-                ],
-                onTap: _selectGoogleDriveStorage,
-              ),
-
-              const SizedBox(height: 12),
-
-              // My Books Card - Premium
-              _buildPremiumStorageCard(
-                icon: Icons.library_books_rounded,
-                title: 'Kitaplarım',
-                subtitle: 'İndirilen kitaplar',
-                gradientColors: [
-                  Colors.orange,
-                  Colors.orange.withValues(alpha: 0.7),
-                ],
-                onTap: _selectMyBooks,
-              ),
-
-              if (isLoading) ...[
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 3,
-                  child: LinearProgressIndicator(
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentFilesList() {
-    if (recentFiles.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 12),
-          child: Row(
-            children: [
-              Icon(
-                Icons.history_rounded,
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Son Açılanlar',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 110,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: recentFiles.length,
-            itemBuilder: (context, index) {
-              final file = recentFiles[index];
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Tooltip(
-                  message: file.path,
-                  child: InkWell(
-                    onTap: () async {
-                      // Validate if file exists
-                      if (await File(file.path).exists()) {
-                        _handleZipFile(file.path, file.name);
-                      } else {
-                        // Ask to remove if not found
-                        final remove = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Dosya Bulunamadı'),
-                            content: Text(
-                              '"${file.name}" dosya yolunda bulunamadı. Listeden kaldırılsın mı?',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Hayır'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text(
-                                  'Evet',
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (remove == true) {
-                          _removeRecentFile(file.path);
-                        }
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      width: 140,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Theme.of(
-                            context,
-                          ).dividerColor.withValues(alpha: 0.5),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer
-                                  .withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.book_rounded,
-                              size: 20,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            file.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${file.addedAt.day}.${file.addedAt.month}.${file.addedAt.year}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Theme.of(context).disabledColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 24),
-        Divider(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-
-  Widget _buildPremiumStorageCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required List<Color> gradientColors,
-    required VoidCallback? onTap,
-  }) {
-    return MouseRegion(
-      cursor: onTap != null
-          ? SystemMouseCursors.click
-          : SystemMouseCursors.basic,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        child: Card(
-          elevation: 2,
-          shadowColor: gradientColors[0].withValues(alpha: 0.2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  colors: [
-                    gradientColors[0].withValues(alpha: 0.05),
-                    gradientColors[1].withValues(alpha: 0.02),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Icon container with gradient
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: gradientColors,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: gradientColors[0].withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Icon(icon, size: 28, color: Colors.white),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Text content
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onSurface,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Arrow icon
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 18,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (showStorageSelection) {
@@ -2503,7 +1579,24 @@ class _FolderHomePageState extends State<FolderHomePage> {
             ),
           ],
         ),
-        body: _buildStorageSelectionScreen(),
+        body: StorageSelectionView(
+          recentFiles: recentFiles,
+          onLocalStorageTap: _selectLocalStorage,
+          onGoogleDriveTap: _selectGoogleDriveStorage,
+          onMyBooksTap: _selectMyBooks,
+          onRecentFileTap: (file) async {
+            if (await File(file.path).exists()) {
+              _handleZipFile(file.path, file.name);
+            } else {
+              _showError("Dosya bulunamadı: ${file.name}");
+              _handleZipFile(file.path, file.name);
+            }
+          },
+          onRecentFileDelete: (file) {
+            _removeRecentFile(file.path);
+          },
+          isLoading: isLoading,
+        ),
       );
     }
 
@@ -2680,10 +1773,7 @@ class _FolderHomePageState extends State<FolderHomePage> {
             Column(
               children: [
                 if (openTabs.isNotEmpty) _buildTabBar(),
-                if ((openTabs.isEmpty || showFolderBrowser) &&
-                    !isLoading &&
-                    useGoogleDrive)
-                  _buildDriveBreadcrumbs(),
+                // Breadcrumbs removed here as they are now inside GoogleDriveBrowser
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
