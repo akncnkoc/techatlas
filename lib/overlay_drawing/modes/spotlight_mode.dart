@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 /// Spot ışık modu - Ekranın bir kısmını vurgular, geri kalanını karartır
 class SpotlightMode extends StatefulWidget {
   final VoidCallback? onClose;
+  final GlobalKey? panelKey;
 
-  const SpotlightMode({super.key, this.onClose});
+  const SpotlightMode({super.key, this.onClose, this.panelKey});
 
   @override
   State<SpotlightMode> createState() => _SpotlightModeState();
@@ -49,6 +50,7 @@ class _SpotlightModeState extends State<SpotlightMode> {
             right: 10,
             top: 10,
             child: Container(
+              key: widget.panelKey,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.95),
@@ -65,10 +67,7 @@ class _SpotlightModeState extends State<SpotlightMode> {
                 children: [
                   const Text(
                     'Spot Işık',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   const SizedBox(height: 6),
 
@@ -149,10 +148,7 @@ class _SpotlightModeState extends State<SpotlightMode> {
               ),
               child: const Text(
                 '💡 Spot ışığı hareket ettirmek için fareyi sürükleyin',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 12),
               ),
             ),
           ),
@@ -162,10 +158,7 @@ class _SpotlightModeState extends State<SpotlightMode> {
   }
 }
 
-enum SpotlightShape {
-  circle,
-  rectangle,
-}
+enum SpotlightShape { circle, rectangle }
 
 /// Spotlight painter
 class SpotlightPainter extends CustomPainter {
@@ -187,14 +180,10 @@ class SpotlightPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     // Tüm ekranı karart
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      darkPaint,
-    );
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), darkPaint);
 
     // Spotlight alanını temizle (şeffaf yap)
-    final clearPaint = Paint()
-      ..blendMode = BlendMode.clear;
+    final clearPaint = Paint()..blendMode = BlendMode.clear;
 
     if (shape == SpotlightShape.circle) {
       // Dairesel spotlight

@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 /// Izgara/Grid modu - Ekrana ızgara ekleme
 class GridMode extends StatefulWidget {
   final VoidCallback? onClose;
+  final GlobalKey? panelKey;
 
-  const GridMode({super.key, this.onClose});
+  const GridMode({super.key, this.onClose, this.panelKey});
 
   @override
   State<GridMode> createState() => _GridModeState();
@@ -20,7 +21,14 @@ class _GridModeState extends State<GridMode> {
   bool _showNumbers = false;
 
   // Izgara boyutları
-  static const List<double> _gridSizes = [25.0, 50.0, 75.0, 100.0, 150.0, 200.0];
+  static const List<double> _gridSizes = [
+    25.0,
+    50.0,
+    75.0,
+    100.0,
+    150.0,
+    200.0,
+  ];
 
   // Renk seçenekleri
   static const List<Color> _colors = [
@@ -61,6 +69,7 @@ class _GridModeState extends State<GridMode> {
           right: 10,
           top: 10,
           child: Container(
+            key: widget.panelKey,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.95),
@@ -78,10 +87,7 @@ class _GridModeState extends State<GridMode> {
               children: [
                 const Text(
                   'Izgara',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
                 const SizedBox(height: 6),
 
@@ -134,9 +140,14 @@ class _GridModeState extends State<GridMode> {
                         });
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: isSelected ? Colors.blue : Colors.grey.shade200,
+                          color: isSelected
+                              ? Colors.blue
+                              : Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -144,7 +155,9 @@ class _GridModeState extends State<GridMode> {
                           style: TextStyle(
                             fontSize: 10,
                             color: isSelected ? Colors.white : Colors.black,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -177,7 +190,9 @@ class _GridModeState extends State<GridMode> {
                           color: color,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isSelected ? Colors.blue : Colors.grey.shade300,
+                            color: isSelected
+                                ? Colors.blue
+                                : Colors.grey.shade300,
                             width: isSelected ? 3 : 1,
                           ),
                         ),
@@ -225,7 +240,9 @@ class _GridModeState extends State<GridMode> {
                         width: 32,
                         height: 32,
                         decoration: BoxDecoration(
-                          color: isSelected ? Colors.blue : Colors.grey.shade200,
+                          color: isSelected
+                              ? Colors.blue
+                              : Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Center(
@@ -324,10 +341,7 @@ class _GridModeState extends State<GridMode> {
   }
 }
 
-enum GridType {
-  square,
-  dot,
-}
+enum GridType { square, dot }
 
 class GridPainter extends CustomPainter {
   final double gridSize;
@@ -367,20 +381,12 @@ class GridPainter extends CustomPainter {
 
     // Dikey çizgiler
     for (double x = 0; x <= size.width; x += gridSize) {
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
     // Yatay çizgiler
     for (double y = 0; y <= size.height; y += gridSize) {
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        paint,
-      );
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
   }
 

@@ -5,8 +5,9 @@ import 'package:vector_math/vector_math_64.dart' as vector;
 /// 3D Şekiller modu - Döndürülebilir, zoom yapılabilir 3D geometrik şekiller
 class Shapes3DMode extends StatefulWidget {
   final VoidCallback? onClose;
+  final GlobalKey? panelKey;
 
-  const Shapes3DMode({super.key, this.onClose});
+  const Shapes3DMode({super.key, this.onClose, this.panelKey});
 
   @override
   State<Shapes3DMode> createState() => _Shapes3DModeState();
@@ -60,7 +61,10 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
-    final centerOffset = Offset(screenSize.width / 2 + _position.dx, screenSize.height / 2 + _position.dy);
+    final centerOffset = Offset(
+      screenSize.width / 2 + _position.dx,
+      screenSize.height / 2 + _position.dy,
+    );
 
     return Stack(
       children: [
@@ -70,9 +74,11 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
             onPanUpdate: (details) {
               setState(() {
                 if (details.delta.dx.abs() > details.delta.dy.abs()) {
-                  _rotationY = (_rotationY + details.delta.dx * 0.01) % (math.pi * 2);
+                  _rotationY =
+                      (_rotationY + details.delta.dx * 0.01) % (math.pi * 2);
                 } else {
-                  _rotationX = (_rotationX - details.delta.dy * 0.01) % (math.pi * 2);
+                  _rotationX =
+                      (_rotationX - details.delta.dy * 0.01) % (math.pi * 2);
                 }
               });
             },
@@ -99,6 +105,7 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
           top: 10,
           bottom: 10,
           child: Container(
+            key: widget.panelKey,
             width: 220,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -118,15 +125,15 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                 children: [
                   const Text(
                     '3D Şekiller',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   const SizedBox(height: 6),
 
                   // Şekil seçimi
-                  const Text('Şekil Seç (8 Çeşit)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Şekil Seç (8 Çeşit)',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   GridView.count(
                     shrinkWrap: true,
@@ -146,10 +153,14 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: isSelected ? Colors.blue : Colors.grey.shade200,
+                            color: isSelected
+                                ? Colors.blue
+                                : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: isSelected ? Colors.blue : Colors.grey.shade300,
+                              color: isSelected
+                                  ? Colors.blue
+                                  : Colors.grey.shade300,
                               width: 1.5,
                             ),
                           ),
@@ -167,8 +178,12 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: isSelected ? Colors.white : Colors.black,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.black,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                               ),
                             ],
@@ -203,7 +218,9 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                             color: color,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: isSelected ? Colors.white : Colors.grey.shade300,
+                              color: isSelected
+                                  ? Colors.white
+                                  : Colors.grey.shade300,
                               width: isSelected ? 3 : 1,
                             ),
                             boxShadow: isSelected
@@ -212,7 +229,7 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                                       color: color.withValues(alpha: 0.5),
                                       blurRadius: 8,
                                       spreadRadius: 2,
-                                    )
+                                    ),
                                   ]
                                 : null,
                           ),
@@ -226,7 +243,10 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                   const SizedBox(height: 6),
 
                   // Rotasyon kontrolleri
-                  const Text('Rotasyon', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Rotasyon',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
 
                   // X Rotasyonu
@@ -246,7 +266,10 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                           },
                         ),
                       ),
-                      Text('${((_rotationX % (math.pi * 2)) * 180 / math.pi).toInt()}°', style: const TextStyle(fontSize: 10)),
+                      Text(
+                        '${((_rotationX % (math.pi * 2)) * 180 / math.pi).toInt()}°',
+                        style: const TextStyle(fontSize: 10),
+                      ),
                     ],
                   ),
 
@@ -267,7 +290,10 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                           },
                         ),
                       ),
-                      Text('${((_rotationY % (math.pi * 2)) * 180 / math.pi).toInt()}°', style: const TextStyle(fontSize: 10)),
+                      Text(
+                        '${((_rotationY % (math.pi * 2)) * 180 / math.pi).toInt()}°',
+                        style: const TextStyle(fontSize: 10),
+                      ),
                     ],
                   ),
 
@@ -288,7 +314,10 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                           },
                         ),
                       ),
-                      Text('${((_rotationZ % (math.pi * 2)) * 180 / math.pi).toInt()}°', style: const TextStyle(fontSize: 10)),
+                      Text(
+                        '${((_rotationZ % (math.pi * 2)) * 180 / math.pi).toInt()}°',
+                        style: const TextStyle(fontSize: 10),
+                      ),
                     ],
                   ),
 
@@ -309,7 +338,10 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                           });
                         },
                       ),
-                      const Text('Otomatik Döndür', style: TextStyle(fontSize: 10)),
+                      const Text(
+                        'Otomatik Döndür',
+                        style: TextStyle(fontSize: 10),
+                      ),
                     ],
                   ),
 
@@ -318,7 +350,10 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                   const SizedBox(height: 6),
 
                   // Zoom kontrolü
-                  const Text('Zoom', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Zoom',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -355,7 +390,10 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                     ],
                   ),
                   Center(
-                    child: Text('${(_zoom * 100).toInt()}%', style: const TextStyle(fontSize: 11)),
+                    child: Text(
+                      '${(_zoom * 100).toInt()}%',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ),
 
                   const SizedBox(height: 6),
@@ -363,7 +401,10 @@ class _Shapes3DModeState extends State<Shapes3DMode> {
                   const SizedBox(height: 6),
 
                   // Görünüm seçenekleri
-                  const Text('Görünüm', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Görünüm',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -608,7 +649,9 @@ class Shape3DPainter extends CustomPainter {
     canvas.drawLine(
       center,
       Offset(center.dx + xEnd.dx, center.dy + xEnd.dy),
-      Paint()..color = Colors.red..strokeWidth = 2,
+      Paint()
+        ..color = Colors.red
+        ..strokeWidth = 2,
     );
 
     // Y ekseni (yeşil)
@@ -616,7 +659,9 @@ class Shape3DPainter extends CustomPainter {
     canvas.drawLine(
       center,
       Offset(center.dx + yEnd.dx, center.dy + yEnd.dy),
-      Paint()..color = Colors.green..strokeWidth = 2,
+      Paint()
+        ..color = Colors.green
+        ..strokeWidth = 2,
     );
 
     // Z ekseni (mavi)
@@ -624,7 +669,9 @@ class Shape3DPainter extends CustomPainter {
     canvas.drawLine(
       center,
       Offset(center.dx + zEnd.dx, center.dy + zEnd.dy),
-      Paint()..color = Colors.blue..strokeWidth = 2,
+      Paint()
+        ..color = Colors.blue
+        ..strokeWidth = 2,
     );
   }
 
@@ -687,9 +734,15 @@ class Shape3DPainter extends CustomPainter {
 
     for (var face in faces) {
       final path = Path();
-      path.moveTo(center.dx + projected[face[0]].dx, center.dy + projected[face[0]].dy);
+      path.moveTo(
+        center.dx + projected[face[0]].dx,
+        center.dy + projected[face[0]].dy,
+      );
       for (var i = 1; i < face.length; i++) {
-        path.lineTo(center.dx + projected[face[i]].dx, center.dy + projected[face[i]].dy);
+        path.lineTo(
+          center.dx + projected[face[i]].dx,
+          center.dy + projected[face[i]].dy,
+        );
       }
       path.close();
 
@@ -748,7 +801,10 @@ class Shape3DPainter extends CustomPainter {
 
         if (!showWireframe) {
           final brightness = (math.sin(lat1) + 1) / 2;
-          canvas.drawPath(path, paint..color = color.withValues(alpha: brightness * 0.7 + 0.3));
+          canvas.drawPath(
+            path,
+            paint..color = color.withValues(alpha: brightness * 0.7 + 0.3),
+          );
         }
         canvas.drawPath(path, paint..style = PaintingStyle.stroke);
       }
@@ -780,9 +836,15 @@ class Shape3DPainter extends CustomPainter {
 
     for (var face in faces) {
       final path = Path();
-      path.moveTo(center.dx + projected[face[0]].dx, center.dy + projected[face[0]].dy);
+      path.moveTo(
+        center.dx + projected[face[0]].dx,
+        center.dy + projected[face[0]].dy,
+      );
       for (var i = 1; i < face.length; i++) {
-        path.lineTo(center.dx + projected[face[i]].dx, center.dy + projected[face[i]].dy);
+        path.lineTo(
+          center.dx + projected[face[i]].dx,
+          center.dy + projected[face[i]].dy,
+        );
       }
       path.close();
 
@@ -802,10 +864,26 @@ class Shape3DPainter extends CustomPainter {
       final angle1 = i * 2 * math.pi / segments;
       final angle2 = (i + 1) * 2 * math.pi / segments;
 
-      final v1 = vector.Vector3(radius * math.cos(angle1), -height / 2, radius * math.sin(angle1));
-      final v2 = vector.Vector3(radius * math.cos(angle2), -height / 2, radius * math.sin(angle2));
-      final v3 = vector.Vector3(radius * math.cos(angle2), height / 2, radius * math.sin(angle2));
-      final v4 = vector.Vector3(radius * math.cos(angle1), height / 2, radius * math.sin(angle1));
+      final v1 = vector.Vector3(
+        radius * math.cos(angle1),
+        -height / 2,
+        radius * math.sin(angle1),
+      );
+      final v2 = vector.Vector3(
+        radius * math.cos(angle2),
+        -height / 2,
+        radius * math.sin(angle2),
+      );
+      final v3 = vector.Vector3(
+        radius * math.cos(angle2),
+        height / 2,
+        radius * math.sin(angle2),
+      );
+      final v4 = vector.Vector3(
+        radius * math.cos(angle1),
+        height / 2,
+        radius * math.sin(angle1),
+      );
 
       final p1 = _project(v1);
       final p2 = _project(v2);
@@ -837,8 +915,16 @@ class Shape3DPainter extends CustomPainter {
       final angle1 = i * 2 * math.pi / segments;
       final angle2 = (i + 1) * 2 * math.pi / segments;
 
-      final v1 = vector.Vector3(radius * math.cos(angle1), height / 2, radius * math.sin(angle1));
-      final v2 = vector.Vector3(radius * math.cos(angle2), height / 2, radius * math.sin(angle2));
+      final v1 = vector.Vector3(
+        radius * math.cos(angle1),
+        height / 2,
+        radius * math.sin(angle1),
+      );
+      final v2 = vector.Vector3(
+        radius * math.cos(angle2),
+        height / 2,
+        radius * math.sin(angle2),
+      );
 
       final p0 = _project(apex);
       final p1 = _project(v1);
@@ -894,7 +980,12 @@ class Shape3DPainter extends CustomPainter {
     }
   }
 
-  vector.Vector3 _torusVertex(double majorRadius, double minorRadius, double u, double v) {
+  vector.Vector3 _torusVertex(
+    double majorRadius,
+    double minorRadius,
+    double u,
+    double v,
+  ) {
     return vector.Vector3(
       (majorRadius + minorRadius * math.cos(v)) * math.cos(u),
       minorRadius * math.sin(v),
@@ -914,8 +1005,14 @@ class Shape3DPainter extends CustomPainter {
     ];
 
     final faces = [
-      [0, 1, 2], [0, 2, 3], [0, 3, 4], [0, 4, 1],
-      [5, 2, 1], [5, 3, 2], [5, 4, 3], [5, 1, 4],
+      [0, 1, 2],
+      [0, 2, 3],
+      [0, 3, 4],
+      [0, 4, 1],
+      [5, 2, 1],
+      [5, 3, 2],
+      [5, 4, 3],
+      [5, 1, 4],
     ];
 
     _drawFaces(canvas, paint, vertices, faces);
@@ -966,14 +1063,25 @@ class Shape3DPainter extends CustomPainter {
     _drawFaces(canvas, paint, vertices, faces);
   }
 
-  void _drawFaces(Canvas canvas, Paint paint, List<vector.Vector3> vertices, List<List<int>> faces) {
+  void _drawFaces(
+    Canvas canvas,
+    Paint paint,
+    List<vector.Vector3> vertices,
+    List<List<int>> faces,
+  ) {
     final projected = vertices.map(_project).toList();
 
     for (var face in faces) {
       final path = Path();
-      path.moveTo(center.dx + projected[face[0]].dx, center.dy + projected[face[0]].dy);
+      path.moveTo(
+        center.dx + projected[face[0]].dx,
+        center.dy + projected[face[0]].dy,
+      );
       for (var i = 1; i < face.length; i++) {
-        path.lineTo(center.dx + projected[face[i]].dx, center.dy + projected[face[i]].dy);
+        path.lineTo(
+          center.dx + projected[face[i]].dx,
+          center.dy + projected[face[i]].dy,
+        );
       }
       path.close();
 

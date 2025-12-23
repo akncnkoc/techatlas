@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
@@ -142,6 +143,14 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
   // Ekran klavyesi algılama
   bool _isKeyboardVisible = false;
 
+  // Mouse Mode Polling
+  Timer? _mousePollingTimer;
+  final GlobalKey _toolbarKey = GlobalKey();
+  final GlobalKey _modeSelectorKey = GlobalKey();
+  final GlobalKey _activeModePanelKey =
+      GlobalKey(); // Aktif modun paneli için key
+  bool _wasMouseOverToolbar = false;
+
   @override
   void initState() {
     super.initState();
@@ -152,6 +161,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
   @override
   void dispose() {
     _bluetoothHandler.stop();
+    _stopMousePolling();
     super.dispose();
   }
 
@@ -166,6 +176,109 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
         }
       });
     }
+  }
+
+  /// Mouse pozisyonunu takip et ve toolbar üzerindeyse tıklamaya izin ver
+  void _startMousePolling() {
+    _stopMousePolling();
+    if (kIsWeb || !Platform.isWindows) return;
+
+    debugPrint('🖱️ Mouse polling started');
+
+    // Z-Order koruması için ekstra sayaç
+    int checkCount = 0;
+
+    _mousePollingTimer = Timer.periodic(const Duration(milliseconds: 100), (
+      timer,
+    ) async {
+      if (!mounted || !_isMouseMode) {
+        timer.cancel();
+        return;
+      }
+
+      try {
+        checkCount++;
+
+        // Her 1 saniyede bir (10 * 100ms) z-order'ı zorla
+        if (checkCount % 10 == 0) {
+          await windowManager.setAlwaysOnTop(true);
+        }
+
+        // Mouse pozisyonunu al
+        final cursorOffset = await screenRetriever.getCursorScreenPoint();
+
+        bool isOverUI = false;
+
+        // 1. Toolbar Kontrolü
+        final RenderBox? toolbarRenderBox =
+            _toolbarKey.currentContext?.findRenderObject() as RenderBox?;
+
+        if (toolbarRenderBox != null) {
+          final size = toolbarRenderBox.size;
+          final position = toolbarRenderBox.localToGlobal(Offset.zero);
+          final rect = position & size;
+          if (rect.inflate(10).contains(cursorOffset)) {
+            isOverUI = true;
+          }
+        }
+
+        // 2. Mode Selector Kontrolü
+        if (!isOverUI) {
+          final RenderBox? modeRenderBox =
+              _modeSelectorKey.currentContext?.findRenderObject() as RenderBox?;
+
+          if (modeRenderBox != null) {
+            final size = modeRenderBox.size;
+            final position = modeRenderBox.localToGlobal(Offset.zero);
+            final rect = position & size;
+            if (rect.inflate(10).contains(cursorOffset)) {
+              isOverUI = true;
+            }
+          }
+        }
+
+        // 3. Aktif Mod Paneli Kontrolü (Sağ menü vb.)
+        if (!isOverUI) {
+          final RenderBox? panelRenderBox =
+              _activeModePanelKey.currentContext?.findRenderObject()
+                  as RenderBox?;
+
+          if (panelRenderBox != null) {
+            final size = panelRenderBox.size;
+            final position = panelRenderBox.localToGlobal(Offset.zero);
+            final rect = position & size;
+            if (rect.inflate(10).contains(cursorOffset)) {
+              isOverUI = true;
+            }
+          }
+        }
+
+        // Durum değiştiyse güncelle
+        if (isOverUI != _wasMouseOverToolbar) {
+          _wasMouseOverToolbar = isOverUI;
+
+          if (isOverUI) {
+            debugPrint('🖱️ Mouse over UI - Enabling interaction & Focus');
+            // UI üzerine gelince TIKLANABİLİR yap ve ÖNE GETİR
+            await windowManager.setIgnoreMouseEvents(false);
+            await windowManager.setAlwaysOnTop(true);
+            await windowManager.focus(); // Bu çok önemli, pencereyi öne çeker
+          } else {
+            debugPrint('🖱️ Mouse outside UI - Disabling interaction');
+            // UI dışına çıkınca TIKLAMAYI YOK SAY ama En Üstte tutmaya çalış
+            await windowManager.setIgnoreMouseEvents(true, forward: true);
+            // Focus'u bırakabiliriz ama alwaysOnTop kalmalı
+          }
+        }
+      } catch (e) {
+        debugPrint('Error polling mouse: $e');
+      }
+    });
+  }
+
+  void _stopMousePolling() {
+    _mousePollingTimer?.cancel();
+    _mousePollingTimer = null;
   }
 
   /// Windows ekran klavyesinin açık olup olmadığını kontrol et
@@ -294,19 +407,26 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
     // Windows'ta window ayarları
     if (!kIsWeb && Platform.isWindows) {
       if (_isMouseMode) {
-        // MOUSE MODE: Click-through aktif
-        debugPrint('🖱️ Activating MOUSE mode (full click-through)');
-        await windowManager.setAlwaysOnTop(false);
+        // MOUSE MODE: Click-through aktif ama toolbar için polling başlat
+        debugPrint('🖱️ Activating MOUSE mode with smart interaction');
+
+        // Polling başlamadan önce garanti olsun diye OnTop yap
+        await windowManager.setAlwaysOnTop(true);
+
+        // Başlangıçta click-through yap, polling düzeltecek
         await windowManager.setIgnoreMouseEvents(true, forward: true);
-        debugPrint('✅ Mouse mode activated - use screen edge swipe to return');
+        _startMousePolling();
+        debugPrint('✅ Mouse mode activated - polling started');
       } else {
         // PEN MODE: Çizim aktif
         debugPrint('✏️ Activating PEN mode (drawing enabled)');
+        _stopMousePolling();
         await windowManager.setIgnoreMouseEvents(false);
         // Sadece ekran klavyesi açık değilse always on top'u aç
         if (!_isKeyboardVisible) {
           await windowManager.setAlwaysOnTop(true);
         }
+        await windowManager.focus(); // Pen moda geçince focus al
         debugPrint('✅ Pen mode activated');
       }
     }
@@ -322,6 +442,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
 
       case DrawingMode.highlighter:
         return HighlighterMode(
+          panelKey: _activeModePanelKey,
           onClose: () {
             setState(() {
               _currentMode = null;
@@ -331,6 +452,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
 
       case DrawingMode.text:
         return TextMode(
+          panelKey: _activeModePanelKey,
           onClose: () {
             setState(() {
               _currentMode = null;
@@ -340,6 +462,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
 
       case DrawingMode.shapes:
         return ShapesMode(
+          panelKey: _activeModePanelKey,
           onClose: () {
             setState(() {
               _currentMode = null;
@@ -349,6 +472,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
 
       case DrawingMode.shapes3d:
         return Shapes3DMode(
+          panelKey: _activeModePanelKey,
           onClose: () {
             setState(() {
               _currentMode = null;
@@ -358,6 +482,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
 
       case DrawingMode.ruler:
         return RulerMode(
+          panelKey: _activeModePanelKey,
           onClose: () {
             setState(() {
               _currentMode = null;
@@ -367,6 +492,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
 
       case DrawingMode.spotlight:
         return SpotlightMode(
+          panelKey: _activeModePanelKey,
           onClose: () {
             setState(() {
               _currentMode = null;
@@ -376,6 +502,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
 
       case DrawingMode.curtain:
         return CurtainMode(
+          panelKey: _activeModePanelKey,
           onClose: () {
             setState(() {
               _currentMode = null;
@@ -385,6 +512,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
 
       case DrawingMode.laser:
         return LaserPointerMode(
+          panelKey: _activeModePanelKey,
           onClose: () {
             setState(() {
               _currentMode = null;
@@ -394,6 +522,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
 
       case DrawingMode.grid:
         return GridMode(
+          panelKey: _activeModePanelKey,
           onClose: () {
             setState(() {
               _currentMode = null;
@@ -428,35 +557,40 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
             // Çizim katmanı (sadece Pen Mode'da görünür)
             if (!_isMouseMode)
               Positioned.fill(
-                child: DrawingCanvas(
-                  key: _canvasKey,
-                  color: _selectedColor,
-                  strokeWidth: _strokeWidth,
-                  isEraser: _isEraser,
+                child: IgnorePointer(
+                  ignoring:
+                      _currentMode != null && _currentMode != DrawingMode.pen,
+                  child: DrawingCanvas(
+                    key: _canvasKey,
+                    color: _selectedColor,
+                    strokeWidth: _strokeWidth,
+                    isEraser: _isEraser,
+                  ),
                 ),
               ),
 
-            // Sürüklenebilir mod seçici (sadece Pen Mode'da)
-            if (!_isMouseMode)
-              Positioned(
-                left: _modeSelectorPosition.dx,
-                top: _modeSelectorPosition.dy,
-                child: Draggable(
-                  feedback: Opacity(
-                    opacity: 0.8,
-                    child: _ModeSelector(
-                      currentMode: _currentMode,
-                      isMouseMode: _isMouseMode,
-                      onModeChanged: (mode) {},
-                      onMouseModeToggle: () {},
-                    ),
+            // Sürüklenebilir mod seçici (Her zaman görünür)
+            Positioned(
+              left: _modeSelectorPosition.dx,
+              top: _modeSelectorPosition.dy,
+              child: Draggable(
+                feedback: Opacity(
+                  opacity: 0.8,
+                  child: _ModeSelector(
+                    currentMode: _currentMode,
+                    isMouseMode: _isMouseMode,
+                    onModeChanged: (mode) {},
+                    onMouseModeToggle: () {},
                   ),
-                  childWhenDragging: Container(),
-                  onDragEnd: (details) {
-                    setState(() {
-                      _modeSelectorPosition = details.offset;
-                    });
-                  },
+                ),
+                childWhenDragging: Container(),
+                onDragEnd: (details) {
+                  setState(() {
+                    _modeSelectorPosition = details.offset;
+                  });
+                },
+                child: Container(
+                  key: _modeSelectorKey,
                   child: _ModeSelector(
                     currentMode: _currentMode,
                     isMouseMode: _isMouseMode,
@@ -469,6 +603,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
                   ),
                 ),
               ),
+            ),
 
             // Mouse Mode'da SAĞ KENARDAN SWIPE ile çizim moduna dönüş
             // Dokunmatik ekran için ekran kenarından içeri kaydırma hareketi
@@ -519,37 +654,38 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
                 child: BluetoothStatusIndicator(handler: _bluetoothHandler),
               ),
 
-            // Sürüklenebilir toolbar (sadece Pen Mode'da)
-            if (!_isMouseMode)
-              Positioned(
-                left: _toolbarPosition.dx,
-                top: _toolbarPosition.dy,
-                child: Draggable(
-                  feedback: Opacity(
-                    opacity: 0.8,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: DrawingToolbar(
-                        selectedColor: _selectedColor,
-                        strokeWidth: _strokeWidth,
-                        isEraser: _isEraser,
-                        isMouseMode: _isMouseMode,
-                        onMouseModeToggle: () {},
-                        onColorChanged: (color) {},
-                        onStrokeWidthChanged: (width) {},
-                        onEraserToggle: () {},
-                        onClear: () {},
-                        onUndo: () {},
-                        onClose: () {},
-                      ),
+            // Sürüklenebilir toolbar (Her zaman görünür olsun, Mouse Mode'da da)
+            Positioned(
+              left: _toolbarPosition.dx,
+              top: _toolbarPosition.dy,
+              child: Draggable(
+                feedback: Opacity(
+                  opacity: 0.8,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: DrawingToolbar(
+                      selectedColor: _selectedColor,
+                      strokeWidth: _strokeWidth,
+                      isEraser: _isEraser,
+                      isMouseMode: _isMouseMode,
+                      onMouseModeToggle: () {},
+                      onColorChanged: (color) {},
+                      onStrokeWidthChanged: (width) {},
+                      onEraserToggle: () {},
+                      onClear: () {},
+                      onUndo: () {},
+                      onClose: () {},
                     ),
                   ),
-                  childWhenDragging: Container(),
-                  onDragEnd: (details) {
-                    setState(() {
-                      _toolbarPosition = details.offset;
-                    });
-                  },
+                ),
+                childWhenDragging: Container(),
+                onDragEnd: (details) {
+                  setState(() {
+                    _toolbarPosition = details.offset;
+                  });
+                },
+                child: Container(
+                  key: _toolbarKey,
                   child: DrawingToolbar(
                     selectedColor: _selectedColor,
                     strokeWidth: _strokeWidth,
@@ -590,6 +726,7 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
                   ),
                 ),
               ),
+            ),
           ],
         ),
       ),

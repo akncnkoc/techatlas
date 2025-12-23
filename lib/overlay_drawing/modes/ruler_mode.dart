@@ -4,8 +4,9 @@ import 'dart:math' as math;
 /// Cetvel/Düz çizgi çizme modu
 class RulerMode extends StatefulWidget {
   final VoidCallback? onClose;
+  final GlobalKey? panelKey;
 
-  const RulerMode({super.key, this.onClose});
+  const RulerMode({super.key, this.onClose, this.panelKey});
 
   @override
   State<RulerMode> createState() => _RulerModeState();
@@ -121,6 +122,7 @@ class _RulerModeState extends State<RulerMode> {
           right: 10,
           top: 10,
           child: Container(
+            key: widget.panelKey,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.95),
@@ -138,10 +140,7 @@ class _RulerModeState extends State<RulerMode> {
               children: [
                 const Text(
                   'Cetvel / Düz Çizgi',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
                 const SizedBox(height: 6),
 
@@ -166,7 +165,9 @@ class _RulerModeState extends State<RulerMode> {
                           color: color,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isSelected ? Colors.blue : Colors.grey.shade300,
+                            color: isSelected
+                                ? Colors.blue
+                                : Colors.grey.shade300,
                             width: isSelected ? 3 : 1,
                           ),
                         ),
@@ -197,7 +198,9 @@ class _RulerModeState extends State<RulerMode> {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: isSelected ? Colors.blue : Colors.grey.shade200,
+                          color: isSelected
+                              ? Colors.blue
+                              : Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Center(
@@ -257,11 +260,13 @@ class _RulerModeState extends State<RulerMode> {
 
                 // Geri al butonu
                 ElevatedButton.icon(
-                  onPressed: _lines.isEmpty ? null : () {
-                    setState(() {
-                      _lines.removeLast();
-                    });
-                  },
+                  onPressed: _lines.isEmpty
+                      ? null
+                      : () {
+                          setState(() {
+                            _lines.removeLast();
+                          });
+                        },
                   icon: const Icon(Icons.undo, size: 16),
                   label: const Text('Geri Al'),
                   style: ElevatedButton.styleFrom(
@@ -274,11 +279,13 @@ class _RulerModeState extends State<RulerMode> {
 
                 // Temizle butonu
                 ElevatedButton.icon(
-                  onPressed: _lines.isEmpty ? null : () {
-                    setState(() {
-                      _lines.clear();
-                    });
-                  },
+                  onPressed: _lines.isEmpty
+                      ? null
+                      : () {
+                          setState(() {
+                            _lines.clear();
+                          });
+                        },
                   icon: const Icon(Icons.clear_all, size: 16),
                   label: const Text('Temizle'),
                   style: ElevatedButton.styleFrom(
@@ -348,7 +355,10 @@ class _RulerModeState extends State<RulerMode> {
             right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(8),
@@ -357,7 +367,11 @@ class _RulerModeState extends State<RulerMode> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (_showAngle) ...[
-                      const Icon(Icons.rotate_right, color: Colors.white, size: 16),
+                      const Icon(
+                        Icons.rotate_right,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${_calculateAngle(_startPoint!, _currentPoint!).toStringAsFixed(1)}°',
@@ -369,7 +383,11 @@ class _RulerModeState extends State<RulerMode> {
                       const SizedBox(width: 16),
                     ],
                     if (_showLength) ...[
-                      const Icon(Icons.straighten, color: Colors.white, size: 16),
+                      const Icon(
+                        Icons.straighten,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${_calculateLength(_startPoint!, _currentPoint!).toStringAsFixed(0)} px',
@@ -435,7 +453,13 @@ class RulerPainter extends CustomPainter {
     }
   }
 
-  void _drawLine(Canvas canvas, Offset start, Offset end, Color color, double width) {
+  void _drawLine(
+    Canvas canvas,
+    Offset start,
+    Offset end,
+    Color color,
+    double width,
+  ) {
     final paint = Paint()
       ..color = color
       ..strokeWidth = width

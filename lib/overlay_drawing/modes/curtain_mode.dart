@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 /// Perde modu - Ekranı aşamalı olarak açar/kapatır
 class CurtainMode extends StatefulWidget {
   final VoidCallback? onClose;
+  final GlobalKey? panelKey;
 
-  const CurtainMode({super.key, this.onClose});
+  const CurtainMode({super.key, this.onClose, this.panelKey});
 
   @override
   State<CurtainMode> createState() => _CurtainModeState();
@@ -34,6 +35,7 @@ class _CurtainModeState extends State<CurtainMode> {
           right: 10,
           top: 10,
           child: Container(
+            key: widget.panelKey,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.95),
@@ -51,10 +53,7 @@ class _CurtainModeState extends State<CurtainMode> {
               children: [
                 const Text(
                   'Perde',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
                 const SizedBox(height: 6),
 
@@ -179,22 +178,14 @@ class _CurtainModeState extends State<CurtainMode> {
   }
 }
 
-enum CurtainDirection {
-  fromTop,
-  fromBottom,
-  fromLeft,
-  fromRight,
-}
+enum CurtainDirection { fromTop, fromBottom, fromLeft, fromRight }
 
 /// Perde painter
 class CurtainPainter extends CustomPainter {
   final double revealPercentage;
   final CurtainDirection direction;
 
-  CurtainPainter({
-    required this.revealPercentage,
-    required this.direction,
-  });
+  CurtainPainter({required this.revealPercentage, required this.direction});
 
   @override
   void paint(Canvas canvas, Size size) {

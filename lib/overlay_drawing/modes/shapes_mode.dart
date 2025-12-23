@@ -4,8 +4,9 @@ import 'dart:math' as math;
 /// Geometrik şekiller çizme modu
 class ShapesMode extends StatefulWidget {
   final VoidCallback? onClose;
+  final GlobalKey? panelKey;
 
-  const ShapesMode({super.key, this.onClose});
+  const ShapesMode({super.key, this.onClose, this.panelKey});
 
   @override
   State<ShapesMode> createState() => _ShapesModeState();
@@ -106,6 +107,7 @@ class _ShapesModeState extends State<ShapesMode> {
           top: 10,
           bottom: 10,
           child: Container(
+            key: widget.panelKey,
             width: 200,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -125,15 +127,15 @@ class _ShapesModeState extends State<ShapesMode> {
                 children: [
                   const Text(
                     'Şekil Araçları',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   const SizedBox(height: 6),
 
                   // Şekil seçimi - Grid formatında
-                  const Text('Şekil Seç (16 Çeşit)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Şekil Seç (16 Çeşit)',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   GridView.count(
                     shrinkWrap: true,
@@ -153,10 +155,14 @@ class _ShapesModeState extends State<ShapesMode> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: isSelected ? Colors.blue : Colors.grey.shade200,
+                            color: isSelected
+                                ? Colors.blue
+                                : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: isSelected ? Colors.blue : Colors.grey.shade300,
+                              color: isSelected
+                                  ? Colors.blue
+                                  : Colors.grey.shade300,
                               width: 2,
                             ),
                           ),
@@ -176,8 +182,12 @@ class _ShapesModeState extends State<ShapesMode> {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 9,
-                                  color: isSelected ? Colors.white : Colors.black,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.black,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                               ),
                             ],
@@ -212,7 +222,9 @@ class _ShapesModeState extends State<ShapesMode> {
                             color: color,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: isSelected ? Colors.blue : Colors.grey.shade300,
+                              color: isSelected
+                                  ? Colors.blue
+                                  : Colors.grey.shade300,
                               width: isSelected ? 3 : 1,
                             ),
                           ),
@@ -243,7 +255,9 @@ class _ShapesModeState extends State<ShapesMode> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: isSelected ? Colors.blue : Colors.grey.shade200,
+                            color: isSelected
+                                ? Colors.blue
+                                : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Center(
@@ -507,10 +521,7 @@ class ShapesPainter extends CustomPainter {
   final List<DrawnShape> shapes;
   final DrawnShape? currentShape;
 
-  ShapesPainter({
-    required this.shapes,
-    this.currentShape,
-  });
+  ShapesPainter({required this.shapes, this.currentShape});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -543,10 +554,12 @@ class ShapesPainter extends CustomPainter {
           (shape.start.dx + shape.end.dx) / 2,
           (shape.start.dy + shape.end.dy) / 2,
         );
-        final radius = math.sqrt(
-          math.pow(shape.end.dx - shape.start.dx, 2) +
-              math.pow(shape.end.dy - shape.start.dy, 2),
-        ) / 2;
+        final radius =
+            math.sqrt(
+              math.pow(shape.end.dx - shape.start.dx, 2) +
+                  math.pow(shape.end.dy - shape.start.dy, 2),
+            ) /
+            2;
         canvas.drawCircle(center, radius, paint);
         break;
 
@@ -581,10 +594,7 @@ class ShapesPainter extends CustomPainter {
 
       case ShapeType.triangle:
         final path = Path()
-          ..moveTo(
-            (shape.start.dx + shape.end.dx) / 2,
-            shape.start.dy,
-          )
+          ..moveTo((shape.start.dx + shape.end.dx) / 2, shape.start.dy)
           ..lineTo(shape.start.dx, shape.end.dy)
           ..lineTo(shape.end.dx, shape.end.dy)
           ..close();
@@ -648,10 +658,12 @@ class ShapesPainter extends CustomPainter {
         // Beşgen
         final centerX = (shape.start.dx + shape.end.dx) / 2;
         final centerY = (shape.start.dy + shape.end.dy) / 2;
-        final radius = math.sqrt(
-          math.pow(shape.end.dx - shape.start.dx, 2) +
-              math.pow(shape.end.dy - shape.start.dy, 2),
-        ) / 2;
+        final radius =
+            math.sqrt(
+              math.pow(shape.end.dx - shape.start.dx, 2) +
+                  math.pow(shape.end.dy - shape.start.dy, 2),
+            ) /
+            2;
 
         final path = Path();
         for (int i = 0; i < 5; i++) {
@@ -673,10 +685,12 @@ class ShapesPainter extends CustomPainter {
         // Altıgen
         final centerX = (shape.start.dx + shape.end.dx) / 2;
         final centerY = (shape.start.dy + shape.end.dy) / 2;
-        final radius = math.sqrt(
-          math.pow(shape.end.dx - shape.start.dx, 2) +
-              math.pow(shape.end.dy - shape.start.dy, 2),
-        ) / 2;
+        final radius =
+            math.sqrt(
+              math.pow(shape.end.dx - shape.start.dx, 2) +
+                  math.pow(shape.end.dy - shape.start.dy, 2),
+            ) /
+            2;
 
         final path = Path();
         for (int i = 0; i < 6; i++) {
@@ -698,10 +712,12 @@ class ShapesPainter extends CustomPainter {
         // Yıldız
         final centerX = (shape.start.dx + shape.end.dx) / 2;
         final centerY = (shape.start.dy + shape.end.dy) / 2;
-        final outerRadius = math.sqrt(
-          math.pow(shape.end.dx - shape.start.dx, 2) +
-              math.pow(shape.end.dy - shape.start.dy, 2),
-        ) / 2;
+        final outerRadius =
+            math.sqrt(
+              math.pow(shape.end.dx - shape.start.dx, 2) +
+                  math.pow(shape.end.dy - shape.start.dy, 2),
+            ) /
+            2;
         final innerRadius = outerRadius / 2.5;
 
         final path = Path();
@@ -812,30 +828,38 @@ class ShapesPainter extends CustomPainter {
         final mainRadius = height * 0.3;
 
         // Sol daire
-        path.addOval(Rect.fromCircle(
-          center: Offset(centerX - width * 0.25, centerY),
-          radius: mainRadius * 0.8,
-        ));
+        path.addOval(
+          Rect.fromCircle(
+            center: Offset(centerX - width * 0.25, centerY),
+            radius: mainRadius * 0.8,
+          ),
+        );
 
         // Orta daire (en büyük)
-        path.addOval(Rect.fromCircle(
-          center: Offset(centerX, centerY - height * 0.1),
-          radius: mainRadius,
-        ));
+        path.addOval(
+          Rect.fromCircle(
+            center: Offset(centerX, centerY - height * 0.1),
+            radius: mainRadius,
+          ),
+        );
 
         // Sağ daire
-        path.addOval(Rect.fromCircle(
-          center: Offset(centerX + width * 0.25, centerY),
-          radius: mainRadius * 0.8,
-        ));
+        path.addOval(
+          Rect.fromCircle(
+            center: Offset(centerX + width * 0.25, centerY),
+            radius: mainRadius * 0.8,
+          ),
+        );
 
         // Alt düzleştirme
-        path.addRect(Rect.fromLTRB(
-          centerX - width * 0.4,
-          centerY,
-          centerX + width * 0.4,
-          centerY + height * 0.2,
-        ));
+        path.addRect(
+          Rect.fromLTRB(
+            centerX - width * 0.4,
+            centerY,
+            centerX + width * 0.4,
+            centerY + height * 0.2,
+          ),
+        );
 
         canvas.drawPath(path, paint);
         break;

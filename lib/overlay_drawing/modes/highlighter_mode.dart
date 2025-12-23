@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 /// Vurgulayıcı kalem modu - Yarı şeffaf renkli işaretleyici
 class HighlighterMode extends StatefulWidget {
   final VoidCallback? onClose;
+  final GlobalKey? panelKey;
 
-  const HighlighterMode({super.key, this.onClose});
+  const HighlighterMode({super.key, this.onClose, this.panelKey});
 
   @override
   State<HighlighterMode> createState() => _HighlighterModeState();
@@ -29,7 +30,14 @@ class _HighlighterModeState extends State<HighlighterMode> {
   ];
 
   // Kalem boyutları (geniş vurgulayıcılar)
-  static const List<double> _strokeWidths = [10.0, 15.0, 20.0, 25.0, 30.0, 40.0];
+  static const List<double> _strokeWidths = [
+    10.0,
+    15.0,
+    20.0,
+    25.0,
+    30.0,
+    40.0,
+  ];
 
   void _onPanStart(DragStartDetails details) {
     setState(() {
@@ -112,6 +120,7 @@ class _HighlighterModeState extends State<HighlighterMode> {
           right: 10,
           top: 10,
           child: Container(
+            key: widget.panelKey,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.95),
@@ -129,10 +138,7 @@ class _HighlighterModeState extends State<HighlighterMode> {
               children: [
                 const Text(
                   'Vurgulayıcı',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
                 const SizedBox(height: 6),
 
@@ -157,12 +163,18 @@ class _HighlighterModeState extends State<HighlighterMode> {
                           color: color,
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: isSelected ? Colors.blue : Colors.grey.shade400,
+                            color: isSelected
+                                ? Colors.blue
+                                : Colors.grey.shade400,
                             width: isSelected ? 3 : 1,
                           ),
                         ),
                         child: isSelected
-                            ? const Icon(Icons.check, color: Colors.white, size: 18)
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 18,
+                              )
                             : null,
                       ),
                     );
@@ -194,7 +206,9 @@ class _HighlighterModeState extends State<HighlighterMode> {
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: isSelected ? Colors.blue : Colors.grey.shade300,
+                            color: isSelected
+                                ? Colors.blue
+                                : Colors.grey.shade300,
                             width: isSelected ? 2 : 1,
                           ),
                         ),
@@ -348,7 +362,12 @@ class HighlighterPainter extends CustomPainter {
     }
   }
 
-  void _drawStroke(Canvas canvas, List<HighlightPoint> points, Color color, double width) {
+  void _drawStroke(
+    Canvas canvas,
+    List<HighlightPoint> points,
+    Color color,
+    double width,
+  ) {
     if (points.isEmpty) return;
 
     final paint = Paint()
@@ -366,10 +385,7 @@ class HighlighterPainter extends CustomPainter {
       final p2 = points[i].offset;
 
       // Smooth curve için quadratic bezier
-      final midPoint = Offset(
-        (p1.dx + p2.dx) / 2,
-        (p1.dy + p2.dy) / 2,
-      );
+      final midPoint = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
 
       path.quadraticBezierTo(p1.dx, p1.dy, midPoint.dx, midPoint.dy);
     }

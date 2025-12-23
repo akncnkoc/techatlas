@@ -16,7 +16,7 @@ Write-Host "Compiling $sourceFile..." -ForegroundColor Cyan
 $refs = "/reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.IO.Compression.FileSystem.dll /reference:System.IO.Compression.dll"
 
 # Compile
-$iconPath = "windows\runner\resources\app_icon.ico"
+$iconPath = "windows\runner\resources\setup_icon.ico"
 $command = "& '$cscPath' /target:winexe /out:$outputFile /win32icon:$iconPath $refs $sourceFile"
 Invoke-Expression $command
 

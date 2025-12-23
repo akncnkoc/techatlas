@@ -4,8 +4,9 @@ import 'dart:async';
 /// Laser pointer / Gösterge modu
 class LaserPointerMode extends StatefulWidget {
   final VoidCallback? onClose;
+  final GlobalKey? panelKey;
 
-  const LaserPointerMode({super.key, this.onClose});
+  const LaserPointerMode({super.key, this.onClose, this.panelKey});
 
   @override
   State<LaserPointerMode> createState() => _LaserPointerModeState();
@@ -44,7 +45,8 @@ class _LaserPointerModeState extends State<LaserPointerMode> {
         setState(() {
           // Eski trail noktalarını sil
           _trail.removeWhere((point) {
-            return DateTime.now().difference(point.timestamp).inMilliseconds > 500;
+            return DateTime.now().difference(point.timestamp).inMilliseconds >
+                500;
           });
         });
       }
@@ -61,10 +63,9 @@ class _LaserPointerModeState extends State<LaserPointerMode> {
     setState(() {
       _pointerPosition = event.localPosition;
       if (_showTrail) {
-        _trail.add(TrailPoint(
-          position: event.localPosition,
-          timestamp: DateTime.now(),
-        ));
+        _trail.add(
+          TrailPoint(position: event.localPosition, timestamp: DateTime.now()),
+        );
       }
     });
   }
@@ -102,6 +103,7 @@ class _LaserPointerModeState extends State<LaserPointerMode> {
             right: 10,
             top: 10,
             child: Container(
+              key: widget.panelKey,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.95),
@@ -119,10 +121,7 @@ class _LaserPointerModeState extends State<LaserPointerMode> {
                 children: [
                   const Text(
                     'Laser Pointer',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   const SizedBox(height: 12),
 
@@ -147,7 +146,9 @@ class _LaserPointerModeState extends State<LaserPointerMode> {
                             color: color,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: isSelected ? Colors.blue : Colors.grey.shade300,
+                              color: isSelected
+                                  ? Colors.blue
+                                  : Colors.grey.shade300,
                               width: isSelected ? 3 : 1,
                             ),
                             boxShadow: [
@@ -184,7 +185,9 @@ class _LaserPointerModeState extends State<LaserPointerMode> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: isSelected ? Colors.blue : Colors.grey.shade200,
+                            color: isSelected
+                                ? Colors.blue
+                                : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Center(
@@ -192,7 +195,9 @@ class _LaserPointerModeState extends State<LaserPointerMode> {
                               width: size / 2,
                               height: size / 2,
                               decoration: BoxDecoration(
-                                color: isSelected ? Colors.white : _pointerColor,
+                                color: isSelected
+                                    ? Colors.white
+                                    : _pointerColor,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -305,10 +310,7 @@ class TrailPoint {
   final Offset position;
   final DateTime timestamp;
 
-  TrailPoint({
-    required this.position,
-    required this.timestamp,
-  });
+  TrailPoint({required this.position, required this.timestamp});
 }
 
 class LaserPointerPainter extends CustomPainter {
@@ -360,11 +362,7 @@ class LaserPointerPainter extends CustomPainter {
 
       // Birden fazla dalgalanma halkası
       for (int i = 1; i <= 3; i++) {
-        canvas.drawCircle(
-          pointerPosition!,
-          pointerSize * i * 0.8,
-          ripplePaint,
-        );
+        canvas.drawCircle(pointerPosition!, pointerSize * i * 0.8, ripplePaint);
       }
     }
 

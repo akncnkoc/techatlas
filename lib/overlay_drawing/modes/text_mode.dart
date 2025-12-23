@@ -4,8 +4,9 @@ import '../../widgets/keyboard_text_field.dart';
 /// Metin ekleme modu - Ekrana metin etiketleri ekler
 class TextMode extends StatefulWidget {
   final VoidCallback? onClose;
+  final GlobalKey? panelKey;
 
-  const TextMode({super.key, this.onClose});
+  const TextMode({super.key, this.onClose, this.panelKey});
 
   @override
   State<TextMode> createState() => _TextModeState();
@@ -172,6 +173,7 @@ class _TextModeState extends State<TextMode> {
           right: 10,
           top: 10,
           child: Container(
+            key: widget.panelKey,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.95),
