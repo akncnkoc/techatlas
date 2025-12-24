@@ -27,10 +27,6 @@ class ImageCaptureService {
 
       final viewportSize = renderBox.size;
 
-      print(
-        '📐 Kullanıcının seçtiği alan (viewport): x=${selectedRect.left.toInt()}, y=${selectedRect.top.toInt()}, w=${selectedRect.width.toInt()}, h=${selectedRect.height.toInt()}',
-      );
-
       // Screenshot al - viewport boyutunda
       final pixelRatio = 4.0;
 
@@ -46,10 +42,6 @@ class ImageCaptureService {
       final scaledWidth = selectedRect.width * actualScaleX;
       final scaledHeight = selectedRect.height * actualScaleY;
 
-      print(
-        '✂️ Scaled crop area: x=${scaledLeft.toInt()}, y=${scaledTop.toInt()}, w=${scaledWidth.toInt()}, h=${scaledHeight.toInt()}',
-      );
-
       // Sınırları clamp et
       final clampedLeft = scaledLeft.clamp(0.0, fullImage.width.toDouble());
       final clampedTop = scaledTop.clamp(0.0, fullImage.height.toDouble());
@@ -64,10 +56,6 @@ class ImageCaptureService {
 
       final finalWidth = (clampedRight - clampedLeft).toInt();
       final finalHeight = (clampedBottom - clampedTop).toInt();
-
-      print(
-        '🎯 Final crop (clamped): x=${clampedLeft.toInt()}, y=${clampedTop.toInt()}, w=$finalWidth, h=$finalHeight',
-      );
 
       // Geçerlilik kontrolü
       if (finalWidth < 10 || finalHeight < 10) {
@@ -114,16 +102,9 @@ class ImageCaptureService {
             (finalWidth < finalHeight ? finalWidth : finalHeight);
         outputWidth = (finalWidth * scale).toInt();
         outputHeight = (finalHeight * scale).toInt();
-        print(
-          '📈 Upscaling: ${finalWidth}x$finalHeight → ${outputWidth}x$outputHeight',
-        );
       }
 
       final croppedImage = await picture.toImage(outputWidth, outputHeight);
-
-      print(
-        '✅ Cropped image oluşturuldu: ${croppedImage.width} x ${croppedImage.height}',
-      );
 
       // PNG'ye dönüştür
       final byteData = await croppedImage.toByteData(

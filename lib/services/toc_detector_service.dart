@@ -53,9 +53,6 @@ class TOCDetectorService {
     }
 
     if (bestPageNumber != -1) {
-      print(
-        'TOC Candidate found on page $bestPageNumber with $maxLinks links.',
-      );
       return await extractChapters(doc.pages[bestPageNumber - 1]);
     }
 

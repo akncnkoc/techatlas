@@ -306,10 +306,6 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     _lastRotation = 0.0;
     final tool = toolNotifier.value;
 
-    print(
-      "🎯 ScaleStart: ${details.pointerCount} pointers, tool: pencil=${tool.pencil}, eraser=${tool.eraser}, highlighter=${tool.highlighter}",
-    );
-
     // 2 parmak: Zoom için başlangıç transformu ve focal point'i kaydet
     if (details.pointerCount == 2) {
       _scaleStartTransform = Matrix4.copy(transformationController.value);
@@ -441,10 +437,6 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   // New pointer handlers for better stylus support
   void _handleDrawingPointerDown(PointerDownEvent event) {
     final tool = toolNotifier.value;
-
-    print(
-      "🖊️ Drawing PointerDown: kind=${event.kind}, device=${event.device}, position=${event.localPosition}",
-    );
 
     // Palm rejection: Check if this is a stylus or touch
     final isStylus = event.kind == PointerDeviceKind.stylus;
@@ -610,10 +602,6 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   void _startStroke(Offset position) {
     final transformedPosition = _transformPoint(position);
 
-    print(
-      "🔍 Current scale: ${transformationController.value.getMaxScaleOnAxis()}",
-    );
-
     // İlk çizimse boş durumu kaydet
     if (!_history.canUndo(_currentPage) && !_history.canRedo(_currentPage)) {
       _saveToHistory();
@@ -650,9 +638,6 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
       _strokes.add(_activeStroke!);
 
       _repaintNotifier.value++;
-      print(
-        "✅ Stroke started: ${_strokes.length} total strokes, highlighter: ${tool.highlighter}",
-      );
     });
   }
 
@@ -1452,9 +1437,6 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
     final targetPage = _isZeroBased ? _currentPage - 1 : _currentPage;
     final cropsForPage = widget.cropData!.getCropsForPage(targetPage);
-    print(
-      '🔍 Page $_currentPage (Target: $targetPage): Found ${cropsForPage.length} objects',
-    );
 
     if (cropsForPage.isEmpty) {
       return const SizedBox.shrink();

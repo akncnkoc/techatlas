@@ -39,9 +39,6 @@ class GoogleDriveAuth {
       String credentialsJson;
 
       try {
-        debugPrint(
-          '🔐 Loading encrypted credentials from assets/service_account.enc...',
-        );
         // Always load from assets for the encrypted file
         final ByteData encryptedData = await rootBundle.load(
           'assets/service_account.enc',
@@ -61,10 +58,6 @@ class GoogleDriveAuth {
       if (jsonMap.containsKey('private_key')) {
         String key = jsonMap['private_key'] as String;
 
-        debugPrint(
-          '🔑 Key starts with: ${key.substring(0, math.min(30, key.length))}...',
-        );
-
         // 1. Handle double escaped newlines (literal \n)
         if (key.contains(r'\n')) {
           key = key.replaceAll(r'\n', '\n');
@@ -76,11 +69,7 @@ class GoogleDriveAuth {
         }
 
         // 3. Ensure correct PEM headers/footers
-        if (!key.startsWith('-----BEGIN PRIVATE KEY-----')) {
-          debugPrint(
-            '⚠️ Warning: Private key does not start with standard PEM header',
-          );
-        }
+        if (!key.startsWith('-----BEGIN PRIVATE KEY-----')) {}
 
         // 4. Sometimes keys are one long line without any newlines.
         // We should try to insert newlines if they are missing after header/before footer

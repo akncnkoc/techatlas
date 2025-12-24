@@ -762,14 +762,11 @@ class _FolderHomePageState extends State<FolderHomePage> {
   }
 
   Future<void> _handleZipFile(String zipPath, String zipFileName) async {
-    try {
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
+    setState(() {
+      isLoading = true;
+    });
 
+    try {
       // Read the book file (zip format)
       final bytes = await File(zipPath).readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);
@@ -781,7 +778,6 @@ class _FolderHomePageState extends State<FolderHomePage> {
 
       for (final file in archive) {
         final lowerName = file.name.toLowerCase();
-        //  // Debug
         if (lowerName.endsWith('crop_coordinates.json')) {
           cropCoordinatesJson = file;
         } else if (lowerName.endsWith('page_contents.json')) {
@@ -846,7 +842,9 @@ class _FolderHomePageState extends State<FolderHomePage> {
 
       if (targetPdfFile == null) {
         if (!mounted) return;
-        Navigator.of(context).pop();
+        setState(() {
+          isLoading = false;
+        });
         _showError(
           'No PDF file found in book archive (expected $dynamicPdfName or original.pdf)',
         );
@@ -876,10 +874,10 @@ class _FolderHomePageState extends State<FolderHomePage> {
       }
 
       if (!mounted) return;
-      Navigator.of(context).pop();
 
       // Open the extracted PDF
       setState(() {
+        isLoading = false;
         openTabs.add(
           OpenPdfTab(
             pdfPath: pdfPath,
@@ -892,6 +890,7 @@ class _FolderHomePageState extends State<FolderHomePage> {
         );
         currentTabIndex = openTabs.length - 1;
         showFolderBrowser = false;
+        showStorageSelection = false;
       });
     } catch (e) {
       // Fallback to system unzip (for LZMA/method 14 support)
@@ -964,7 +963,9 @@ class _FolderHomePageState extends State<FolderHomePage> {
 
           if (!await pdfFile.exists()) {
             if (!mounted) return;
-            Navigator.of(context).pop();
+            setState(() {
+              isLoading = false;
+            });
             _showError(
               'No PDF found in book file (tried $pdfToExtract and original.pdf)',
             );
@@ -980,22 +981,14 @@ class _FolderHomePageState extends State<FolderHomePage> {
           if (await pageContentFile.exists()) {
             try {
               final jsonString = await pageContentFile.readAsString();
-              print(
-                '📄 Found page_contents.json. Length: ${jsonString.length}',
-              );
-              //
-
               pageContent = PageContent.fromJsonString(jsonString);
-              print(
-                '✅ Parsed PageContent. Pages with content: ${pageContent.pages.keys.join(', ')}',
-              );
             } catch (e) {}
           } else {}
 
           if (!mounted) return;
-          Navigator.of(context).pop();
 
           setState(() {
+            isLoading = false;
             openTabs.add(
               OpenPdfTab(
                 pdfPath: pdfFile.path,
@@ -1008,13 +1001,16 @@ class _FolderHomePageState extends State<FolderHomePage> {
             );
             currentTabIndex = openTabs.length - 1;
             showFolderBrowser = false;
+            showStorageSelection = false;
           });
           return;
         } catch (unzipError) {}
       }
 
       if (!mounted) return;
-      Navigator.of(context).pop();
+      setState(() {
+        isLoading = false;
+      });
       _showError('Failed to extract PDF from zip: $e');
     }
   }

@@ -300,15 +300,9 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
             // Sadece pen mode'dayken ayarla
             if (_isKeyboardVisible) {
               // Klavye açıldı - always on top'u kapat
-              debugPrint(
-                '⌨️ Ekran klavyesi algılandı - pencere arka plana alınıyor',
-              );
               await windowManager.setAlwaysOnTop(false);
             } else {
               // Klavye kapandı - always on top'u tekrar aç
-              debugPrint(
-                '⌨️ Ekran klavyesi kapandı - pencere ön plana alınıyor',
-              );
               await windowManager.setAlwaysOnTop(true);
             }
           }
@@ -601,9 +595,6 @@ class _TransparentDrawingOverlayState extends State<TransparentDrawingOverlay> {
                     // Sağdan sola kaydırma (negatif velocity)
                     if (details.primaryVelocity != null &&
                         details.primaryVelocity! < -500) {
-                      debugPrint(
-                        '� Right edge swipe detected - toggling to pen mode',
-                      );
                       _toggleMouseMode();
                     }
                   },

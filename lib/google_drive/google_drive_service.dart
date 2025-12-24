@@ -32,10 +32,6 @@ class GoogleDriveService {
         await initialize();
       }
 
-      debugPrint(
-        '📂 Listing Google Drive files in folder: ${folderId ?? "root"}',
-      );
-
       final driveApi = _auth.getDriveApi();
       if (driveApi == null) {
         throw Exception(
@@ -116,10 +112,6 @@ class GoogleDriveService {
           result.add(book);
         }
       }
-
-      debugPrint(
-        '✅ Found ${result.length} items (folders + books with covers)',
-      );
 
       return result;
     } catch (e) {

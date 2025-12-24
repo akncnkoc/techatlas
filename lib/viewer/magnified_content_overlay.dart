@@ -156,14 +156,6 @@ class _MagnifiedContentOverlayState extends State<MagnifiedContentOverlay> {
       // Get the RenderObject from the RepaintBoundary
       final renderObject = widget.contentKey.currentContext?.findRenderObject();
 
-      print(
-        '   Context: ${widget.contentKey.currentContext != null ? "✓" : "✗"}',
-      );
-
-      print(
-        '   Is RepaintBoundary: ${renderObject is RenderRepaintBoundary ? "✓" : "✗"}',
-      );
-
       if (renderObject is! RenderRepaintBoundary) {
         if (!mounted) return;
         setState(() => _isCapturing = false);
