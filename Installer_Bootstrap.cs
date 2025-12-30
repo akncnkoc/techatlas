@@ -308,8 +308,6 @@ namespace TechAtlasInstaller
                 string remoteVersion = releaseInfo.Item1;
                 string downloadUrl = releaseInfo.Item2;
 
-                string remoteVersion = releaseInfo.Item1;
-                string downloadUrl = releaseInfo.Item2;
 
                 UpdateStatus("Versiyon bulundu");
                 this.Invoke(new Action(() => {
