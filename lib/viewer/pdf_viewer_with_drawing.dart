@@ -162,11 +162,17 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
   // DrawingProvider listener
   DrawingProvider? _drawingProvider;
   double _lastProviderZoom = 1.0;
+  late final FocusNode _focusNode;
   double _lastProviderRotation = 0.0;
 
   @override
   void initState() {
     super.initState();
+    _focusNode = FocusNode();
+    // Request focus after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
     // pdfrx: Controller listener now tracks page changes via onPageChanged callback
     // or by listening to controller changes and checking pageNumber
     widget.controller.addListener(_onPageChanged);
@@ -255,6 +261,7 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
     _timeTracker.dispose();
     _drawingProvider?.removeListener(_onDrawingProviderChanged);
     _currentPageTimeNotifier.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -1687,39 +1694,40 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
 
   @override
   Widget build(BuildContext context) {
-    final tool = toolNotifier.value;
+    return ValueListenableBuilder<ToolState>(
+      valueListenable: toolNotifier,
+      builder: (context, tool, _) {
+        final mainContent = Listener(
+          onPointerSignal: (pointerSignal) {
+            if (pointerSignal is PointerScrollEvent) {
+              final isCtrlPressed = HardwareKeyboard.instance.isControlPressed;
 
-    final mainContent = Listener(
-      onPointerSignal: (pointerSignal) {
-        if (pointerSignal is PointerScrollEvent) {
-          final isCtrlPressed = HardwareKeyboard.instance.isControlPressed;
+              if (isCtrlPressed) {
+                final delta = pointerSignal.scrollDelta.dy;
+                final currentScale = transformationController.value
+                    .getMaxScaleOnAxis();
 
-          if (isCtrlPressed) {
-            final delta = pointerSignal.scrollDelta.dy;
-            final currentScale = transformationController.value
-                .getMaxScaleOnAxis();
+                double zoomFactor;
+                if (delta < 0) {
+                  zoomFactor = 1.1;
+                } else {
+                  zoomFactor = 0.9;
+                }
 
-            double zoomFactor;
-            if (delta < 0) {
-              zoomFactor = 1.1;
-            } else {
-              zoomFactor = 0.9;
+                final newScale = (currentScale * zoomFactor).clamp(
+                  _minZoom,
+                  _maxZoom,
+                );
+
+                if (newScale != currentScale) {
+                  transformationController.value = Matrix4.identity()
+                    ..scaleByVector3(Vector3(newScale, newScale, 1));
+                }
+              }
             }
-
-            final newScale = (currentScale * zoomFactor).clamp(
-              _minZoom,
-              _maxZoom,
-            );
-
-            if (newScale != currentScale) {
-              transformationController.value = Matrix4.identity()
-                ..scaleByVector3(Vector3(newScale, newScale, 1));
-            }
-          }
-        }
-      },
+          },
       child: KeyboardListener(
-        focusNode: FocusNode()..requestFocus(),
+        focusNode: _focusNode,
         onKeyEvent: (KeyEvent event) {
           if (event is KeyDownEvent) {
             final isCtrlPressed = HardwareKeyboard.instance.isControlPressed;
@@ -1778,7 +1786,10 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                     minScale: _minZoom,
                     maxScale: _maxZoom,
                     boundaryMargin: EdgeInsets.zero,
-                    panEnabled: true, // Always enable panning for better UX
+                    panEnabled: !tool.pencil &&
+                        !tool.eraser &&
+                        !tool.highlighter &&
+                        !tool.shape,
                     scaleEnabled: true,
                     onInteractionEnd: (details) {
                       // Swipe detection logic
@@ -1909,7 +1920,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
                                 onViewerReady: (document, controller) {
                                   // Viewer hazır olduğunda ilk sayfa bilgisini ayarla
                                   if (mounted &&
-                                      controller.pageNumber != null) {
+                                      controller.pageNumber != null &&
+                                      controller.pageNumber != _currentPage) {
                                     setState(
                                       () =>
                                           _currentPage = controller.pageNumber!,
@@ -2118,6 +2130,8 @@ class PdfViewerWithDrawingState extends State<PdfViewerWithDrawing> {
             },
           ),
       ],
+    );
+      },
     );
   }
 }
